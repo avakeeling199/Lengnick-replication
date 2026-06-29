@@ -15,6 +15,8 @@ class Household(mesa.Agent):
         self.type_b_connection = None # employment
         self.c_r_h = 0 # demand
         self.income = 0 #income from last month
+        self.demand_const = False # was this h demand const?
+        self.demand_const_shops = {}
 
     def monthly_consumption(self, alpha):
         """
@@ -47,14 +49,17 @@ class Household(mesa.Agent):
                 shop.i_f -= demand
                 demand = 0
             elif self.m_h < (shop.p_f * demand):
+                
                 demand_new = self.m_h / shop.p_f
                 self.m_h -= shop.p_f * demand_new
                 shop.m_f += shop.p_f * demand_new
                 shop.i_f -= demand_new
                 demand -= demand_new
-            elif shop.i_f < demand:
+            elif shop.i_f < demand:  
+                self.demand_const = True  
                 self.m_h -= shop.p_f * shop.i_f
                 shop.m_f += shop.p_f * shop.i_f
+                self.demand_const_shops[shop] = self.demand_const_shops.get(shop, 0) + (demand - shop.i_f)
                 demand -= shop.i_f
                 shop.i_f = 0
             if demand <= 0.05 * og_demand:
@@ -67,7 +72,7 @@ class Household(mesa.Agent):
         if self.income == 0:
             self.w_h = self.w_h * 0.9
 
-    def search_connections(self, psi_price, xi):
+    def search_connections(self, psi_price, xi, psi_quant):
         if random.random() < psi_price:
             typeA = random.choice(self.type_a_connections)
             all_firms = set(self.model.agents.select(agent_type=Firm))
@@ -75,11 +80,23 @@ class Household(mesa.Agent):
             weights = [len(f.workers) for f in no_type_as]
             new_firm = random.choices(no_type_as, weights=weights, k=1)[0]
 
-            if new_firm.p_f < xi * typeA.p_f:
+            if new_firm.p_f < (1 - xi) * typeA.p_f:
                 self.type_a_connections.remove(typeA)
                 self.type_a_connections.append(new_firm)
             
-            
+        if self.demand_const == True:
+            if random.random() < psi_quant:
+                shops = list(self.demand_const_shops.keys())
+                weights = list(self.demand_const_shops.values())
+                shop = random.choices(shops, weights=weights, k=1)[0]
+                all_firms = set(self.model.agents.select(agent_type=Firm))
+                no_type_as = list(all_firms - set(self.type_a_connections))
+                self.type_a_connections.remove(shop)
+                new_shop = random.choice(no_type_as)
+                self.type_a_connections.append(new_shop)
+
+                
+
 
 class Firm(mesa.Agent):
     """Firm agents"""
@@ -92,7 +109,6 @@ class Firm(mesa.Agent):
         self.p_f = 1.0 # goods price
         self.w_f = 1.0 # wage rate
         self.workers = [] # list of workers
-        self.l_f = len(self.workers) # no of workers?
         self.buffer = 0
         self.n_positions = 10
         self.months_full = 0
@@ -101,7 +117,8 @@ class Firm(mesa.Agent):
 
     def produce(self, ld):
         """produce goods"""
-        self.l_f += ld * self.l_f
+        l_f = len(self.workers)
+        self.i_f += ld * l_f
 
     def pay_wages(self):
         """
@@ -111,14 +128,15 @@ class Firm(mesa.Agent):
         # add buffer to liquidity and then reset to 0
         self.m_f += self.buffer
         self.buffer = 0
-        if self.m_f >= self.w_f * self.l_f:
+        l_f = len(self.workers)
+        if self.m_f >= self.w_f * l_f:
             for h in self.workers:
                 self.m_f -= self.w_f
                 h.m_h += self.w_f
                 # store income
                 h.income = self.w_f
         else:
-            new_wage = self.m_f / self.l_f
+            new_wage = self.m_f / l_f
             for h in self.workers:
                 self.m_f -= new_wage
                 h.m_h += new_wage
@@ -127,10 +145,11 @@ class Firm(mesa.Agent):
 
     def add_to_buffer(self, chi):
         """add left over liquidity to buffer """
-        if self.m_f > chi * self.w_f * self.l_f:
+        l_f = len(self.workers)
+        if self.m_f > chi * self.w_f * l_f:
             # add to buffer - full amt
-            self.buffer += chi * self.w_f * self.l_f
-            self.m_f -= chi * self.w_f * self.l_f
+            self.buffer += chi * self.w_f * l_f
+            self.m_f -= chi * self.w_f * l_f
         elif self.m_f > 0:
             # add to buffer - not full amt
             self.buffer += self.m_f
@@ -152,7 +171,8 @@ class Firm(mesa.Agent):
         """
         # draw from uniform dist
         mu = random.uniform(0, delta)
-        if self.n_positions > self.l_f:
+        l_f = len(self.workers)
+        if self.n_positions > l_f:
             self.w_f = self.w_f * (1 + mu)
             self.months_full = 0
 
