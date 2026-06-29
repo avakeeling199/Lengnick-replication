@@ -49,10 +49,17 @@ class LegnickModel(mesa.Model):
             # fire workers from last month
             self.agents.select(agent_type=Firm).do("fire_workers")
             # set employment demand
-            self.agents.select(agent_type=Firm).do("set_employment", phi_upper=self.phi_upper,
-                                                    phi_lower=self.phi_lower)
+            self.agents.select(agent_type=Firm).do("set_employment", phi_emp_upper=self.phi_emp_upper,
+                                                    phi_emp_lower=self.phi_emp_lower)
             # set prices
-
+            self.agents.select(agent_type=Firm).do("set_prices", phi_price_upper=self.phi_price_upper,
+                                                    phi_price_lower=self.phi_price_lower,
+                                                    ld=self.ld,
+                                                    theta=self.theta,
+                                                    phi_emp_upper=self.phi_emp_upper,
+                                                    vartheta=self.vartheta,
+                                                    phi_emp_lower=self.phi_emp_lower)
+            
             # households:
             # each search for better type_a connections
             # if type_b_connection = None, go to random f to search for open position
