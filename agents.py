@@ -78,8 +78,11 @@ class Household(mesa.Agent):
             all_firms = set(self.model.agents.select(agent_type=Firm))
             no_type_as = list(all_firms - set(self.type_a_connections))
             weights = [len(f.workers) for f in no_type_as]
-            new_firm = random.choices(no_type_as, weights=weights, k=1)[0]
-
+            if sum(weights) == 0:
+                new_firm = random.choice(no_type_as)
+            else:
+                new_firm = random.choices(no_type_as, weights=weights, k=1)[0]
+                
             if new_firm.p_f < (1 - xi) * typeA.p_f:
                 self.type_a_connections.remove(typeA)
                 self.type_a_connections.append(new_firm)
@@ -108,8 +111,6 @@ class Household(mesa.Agent):
                         self.type_b_connection = f
                         f.workers.append(self)
                         break
-                else:
-                    continue
         # satisfied
         else:
             if self.type_b_connection.w_f >= self.w_h:
