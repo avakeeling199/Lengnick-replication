@@ -6,7 +6,8 @@ from agents import Household, Firm
 class LegnickModel(mesa.Model):
     """the Legnick model"""
     
-    def __init__(self, n_households = 1000, n_firms = 100, seed=333, alpha = 0.9, n = 7, ld = 3, chi = 0.1, gamma = 24, delta = 0.019):
+    def __init__(self, n_households = 1000, n_firms = 100, seed=333, alpha = 0.9, n = 7, ld = 3, chi = 0.1, gamma = 24, delta = 0.019,
+                    phi_emp_upper = 1, phi_emp_lower = 0.25, phi_price_lower = 1.025, phi_price_upper = 1.15, vartheta = 0.02, theta = 0.75):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -17,6 +18,12 @@ class LegnickModel(mesa.Model):
         self.chi = chi
         self.gamma = gamma
         self.delta = delta
+        self.phi_emp_upper = phi_emp_upper
+        self.phi_emp_lower = phi_emp_lower
+        self.phi_price_lower = phi_price_lower
+        self.phi_price_upper = phi_price_upper
+        self.vartheta = vartheta
+        self.theta = theta
 
         # create agents
         Household.create_agents(model=self, n=n_households)
@@ -39,12 +46,19 @@ class LegnickModel(mesa.Model):
             # firms:
             # each decide how to set w_f
             self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
-            # each decide p_f if i_f unsatisfactory level
+            # fire workers from last month
+            self.agents.select(agent_type=Firm).do("fire_workers")
+            # set employment demand
+            self.agents.select(agent_type=Firm).do("set_employment", phi_upper=self.phi_upper,
+                                                    phi_lower=self.phi_lower)
+            # set prices
+
             # households:
             # each search for better type_a connections
             # if type_b_connection = None, go to random f to search for open position
             # decide how much m_h to spend on consumption goods
             self.agents.select(agent_type=Household).do("monthly_consumption", alpha=self.alpha)
+            
 
         # daily: 
         # households:

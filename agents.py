@@ -39,6 +39,8 @@ class Household(mesa.Agent):
         og_demand = demand
         shops = random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
+            # track demand for each firm
+            shop.demand += demand
             if shop.i_f >= demand and self.m_h >= (shop.p_f * demand):
                 self.m_h -= shop.p_f * demand
                 shop.m_f += shop.p_f * demand
@@ -80,6 +82,8 @@ class Firm(mesa.Agent):
         self.buffer = 0
         self.n_positions = 10
         self.months_full = 0
+        self.demand = 0
+        self.to_fire = [] # workers that are being fired next month
 
     def produce(self, ld):
         """produce goods"""
@@ -143,8 +147,50 @@ class Firm(mesa.Agent):
             self.months_full += 1
         else:
             self.months_full += 1
-        
 
+    def set_employment(self, phi_emp_upper, phi_emp_lower):
+        """
+        set employment rate dependant on inventory levels
+        """
+        i_f_upperbar = phi_emp_upper * self.demand
+        i_f_lowerbar = phi_emp_lower * self.demand
+
+        if self.i_f < i_f_lowerbar:
+            self.n_positions += 1
+        elif self.i_f > i_f_upperbar:
+            to_fire = random.choice(self.workers)
+            self.to_fire.append(to_fire)
+
+    def fire_workers(self):
+        """ fire workers from last month - 1 month delay"""
+        for h in self.to_fire:
+            self.workers.remove(h)
+            h.type_b_connection = None
+        self.to_fire = []
+
+    def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
+        # only consider if inventory in the right amount
+        i_f_upperbar = phi_emp_upper * self.demand
+        i_f_lowerbar = phi_emp_lower * self.demand
+        mc_f = self.w_f / ld
+        v = random.uniform(0, vartheta)
+
+        p_f_upperbar = phi_price_upper * mc_f
+        p_f_lowerbar = phi_price_lower * mc_f
+
+        if self.i_f > i_f_upperbar:
+            # if the price is above p_f_upperbar 
+            if self.p_f > p_f_lowerbar:
+                # lower prices with prob theta 
+                if random.random() < theta:
+                    self.p_f = self.p_f * (1 - v)
+        
+        if self.i_f < i_f_lowerbar:
+            # if the price is lower that p_f_lowerbar
+            if self.p_f < p_f_upperbar:
+                # up prices with prob theta 
+                if random.random() < theta:
+                    self.p_f = self.p_f * (1 + v)
         
 
 
