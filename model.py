@@ -6,7 +6,7 @@ from agents import Household, Firm
 class LegnickModel(mesa.Model):
     """the Legnick model"""
     
-    def __init__(self, n_households = 1000, n_firms = 100, seed=333, alpha = 0.9, n = 7, ld = 3, chi = 0.1):
+    def __init__(self, n_households = 1000, n_firms = 100, seed=333, alpha = 0.9, n = 7, ld = 3, chi = 0.1, gamma = 24, delta = 0.019):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -15,6 +15,8 @@ class LegnickModel(mesa.Model):
         self.n = n
         self.ld = ld
         self.chi = chi
+        self.gamma = gamma
+        self.delta = delta
 
         # create agents
         Household.create_agents(model=self, n=n_households)
@@ -36,6 +38,7 @@ class LegnickModel(mesa.Model):
             # beginning of month
             # firms:
             # each decide how to set w_f
+            self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
             # each decide p_f if i_f unsatisfactory level
             # households:
             # each search for better type_a connections

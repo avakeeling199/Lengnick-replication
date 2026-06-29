@@ -78,6 +78,8 @@ class Firm(mesa.Agent):
         self.workers = [] # list of workers
         self.l_f = len(self.workers) # no of workers?
         self.buffer = 0
+        self.n_positions = 10
+        self.months_full = 0
 
     def produce(self, ld):
         """produce goods"""
@@ -125,5 +127,26 @@ class Firm(mesa.Agent):
             for h in households:
                 h.m_h += (self.m_f / total_liquid) * h.m_h
         self.m_f = 0
+
+    def set_wages(self, gamma, delta):
+        """
+        set wages for the month
+        """
+        # draw from uniform dist
+        mu = random.uniform(0, delta)
+        if self.n_positions > self.l_f:
+            self.w_f = self.w_f * (1 + mu)
+            self.months_full = 0
+
+        elif self.months_full > gamma:
+            self.w_f = self.w_f * (1 - mu)
+            self.months_full += 1
+        else:
+            self.months_full += 1
+        
+
+        
+
+
 
 
