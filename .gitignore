@@ -9,6 +9,9 @@ __pycache__/
 *$py.class
 *.egg-info/
 
+# outputs
+outputs/
+
 # Jupyter
 .ipynb_checkpoints/
 

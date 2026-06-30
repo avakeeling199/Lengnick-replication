@@ -2,6 +2,7 @@ import numpy as np
 import mesa
 import random
 from agents import Household, Firm
+import statistics
 
 class LegnickModel(mesa.Model):
     """the Legnick model"""
@@ -31,6 +32,19 @@ class LegnickModel(mesa.Model):
         self.psi_quant = psi_quant
         self.pie = pie
 
+        # data collection
+        self.datacollector = mesa.DataCollector(
+            model_reporters={
+            "Employment": lambda m: sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None),
+            "AvgPrice": lambda m: sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
+            "AvgWage": lambda m: sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
+            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm)),
+            "PositionsStd": lambda m: statistics.stdev(f.n_positions for f in m.agents.select(agent_type=Firm)),
+            "AvgPositions": lambda m: sum(f.n_positions for f in m.agents.select(agent_type=Firm)) / m.n_firms
+
+}
+        )
+
         # create agents
         Household.create_agents(model=self, n=n_households)
         Firm.create_agents(model=self, n=n_firms)
@@ -47,7 +61,11 @@ class LegnickModel(mesa.Model):
 
     def step(self):
         self.counter += 1
+        # collect data
+        self.datacollector.collect(self)
+
         if self.counter % 21 == 1:
+            print(f"BEGINNING OF MONTH, counter={self.counter}")
             # beginning of month
             # firms:
             # each decide how to set w_f
@@ -68,9 +86,9 @@ class LegnickModel(mesa.Model):
             
             # households:
             # each search for better type_a connections
-            self.agents.select(agent_type=Household).do("search_connections", psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
+            self.agents.select(agent_type=Household).shuffle_do("search_connections", psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
             # job search 
-            self.agents.select(agent_type=Household).do("job_search", beta=self.beta, n_firms=self.n_firms, pie=self.pie)
+            self.agents.select(agent_type=Household).do("job_search", beta=self.beta, pie=self.pie)
             # decide how much m_h to spend on consumption goods
             self.agents.select(agent_type=Household).do("monthly_consumption", alpha=self.alpha)
             
@@ -80,13 +98,14 @@ class LegnickModel(mesa.Model):
         # use their m_h to buy goods from random type_a connection
         # demand is equally spread thru month
         
-        self.agents.select(agent_type=Household).do("buy_goods", n=self.n)
+        self.agents.select(agent_type=Household).shuffle_do("buy_goods", n=self.n)
         
         # firms produce
         self.agents.select(agent_type=Firm).do("produce", ld=self.ld)
 
 
         if self.counter % 21 == 0:
+            print(f"END OF MONTH, counter={self.counter}")
             # end of month:
             # firms:
             # use their m_f to pay wages, build buffer and pay profits

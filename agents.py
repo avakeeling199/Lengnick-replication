@@ -2,6 +2,7 @@ import numpy as np
 import mesa
 import random
 
+
 class Household(mesa.Agent):
     """Household agents"""
 
@@ -17,6 +18,8 @@ class Household(mesa.Agent):
         self.income = 0 #income from last month
         self.demand_const = False # was this h demand const?
         self.demand_const_shops = {}
+
+
 
     def monthly_consumption(self, alpha):
         """
@@ -105,11 +108,11 @@ class Household(mesa.Agent):
         self.demand_const = False
         self.demand_const_shops = {}
 
-    def job_search(self, beta, n_firms, pie):
+    def job_search(self, beta, pie):
         # unemployed
         if self.type_b_connection == None:
-            firms = random.sample(list(self.model.agents.select(agent_type=Firm)), n_firms)
-            for f in firms[:beta]:
+            firms = random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
+            for f in firms:
                 if f.n_positions > len(f.workers):
                     if f.w_f >= self.w_h:
                         self.type_b_connection = f
@@ -158,7 +161,10 @@ class Firm(mesa.Agent):
     def produce(self, ld):
         """produce goods"""
         l_f = len(self.workers)
+        old_i_f = self.i_f
         self.i_f += ld * l_f
+        if self.unique_id == 1001:
+            print(f"counter={self.model.counter}, workers={l_f}, before={old_i_f}, after={self.i_f}")
 
     def pay_wages(self):
         """
@@ -168,6 +174,9 @@ class Firm(mesa.Agent):
         # add buffer to liquidity and then reset to 0
         self.m_f += self.buffer
         self.buffer = 0
+        #guard for if 0 work=ers in firm
+        if len(self.workers) == 0:
+            return
         l_f = len(self.workers)
         if self.m_f >= self.w_f * l_f:
             for h in self.workers:
@@ -228,7 +237,6 @@ class Firm(mesa.Agent):
         """
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
-
         if self.i_f < i_f_lowerbar:
             self.n_positions += 1
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
