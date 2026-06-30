@@ -4,7 +4,7 @@ A Mesa 3 replication of:
 
 > Lengnick, M. (2013). Agent-based macroeconomics: A baseline model. *Journal of Economic Behavior & Organization*, 86, 102-120.
 
-Part of a 10-week project (with Charlie) to replicate the baseline model and then
+Part of a 10-week project to replicate the baseline model and then
 replace its rule-based agent decisions with LLM-based decision-making, to see how
 the model's results change.
 
