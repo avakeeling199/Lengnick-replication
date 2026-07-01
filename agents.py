@@ -49,7 +49,7 @@ class Household(mesa.Agent):
             if shop.i_f >= demand and self.m_h >= (shop.p_f * demand):
                 self.m_h -= shop.p_f * demand
                 # guard from going -ve 
-                self.m_h = min(self.m_h, 0.0)
+                self.m_h = max(self.m_h, 0.0)
                 shop.m_f += shop.p_f * demand
                 shop.i_f -= demand
                 demand = 0
@@ -65,7 +65,7 @@ class Household(mesa.Agent):
                 self.demand_const = True  
                 self.m_h -= shop.p_f * shop.i_f
                 # guard from going -ve 
-                self.m_h = min(self.m_h, 0.0)
+                self.m_h = max(self.m_h, 0.0)
                 shop.m_f += shop.p_f * shop.i_f
                 self.demand_const_shops[shop] = self.demand_const_shops.get(shop, 0) + (demand - shop.i_f)
                 demand -= shop.i_f
@@ -247,7 +247,7 @@ class Firm(mesa.Agent):
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
             to_fire = random.choice(self.workers)
             self.to_fire.append(to_fire)
-            self.n_positions -= 1
+            self.n_positions = max(0.0, self.n_positions - 1)
 
 
     def fire_workers(self):
