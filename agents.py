@@ -237,11 +237,13 @@ class Firm(mesa.Agent):
         """
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
-        if self.i_f < i_f_lowerbar:
+        # only if inventory under i_f_lowbar and all positions are currently full
+        if self.i_f < i_f_lowerbar and self.n_positions <= len(self.workers):
             self.n_positions += 1
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
             to_fire = random.choice(self.workers)
             self.to_fire.append(to_fire)
+            self.n_positions -= 1
 
 
     def fire_workers(self):
@@ -250,7 +252,7 @@ class Firm(mesa.Agent):
         for h in self.to_fire:
             if h in self.workers:
                 self.workers.remove(h)
-                h.type_b_connection = None
+                h.type_b_connection = None           
         self.to_fire = []
 
     def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
