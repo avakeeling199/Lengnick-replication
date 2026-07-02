@@ -80,6 +80,7 @@ class Household(mesa.Agent):
             if self.income > self.w_h:
                 self.w_h = self.income
         else:
+            #WROGN\
             self.w_h = self.w_h * 0.9
 
     def search_connections(self, psi_price, xi, psi_quant):
