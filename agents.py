@@ -51,14 +51,17 @@ class Household(mesa.Agent):
                 shop.m_f += shop.p_f * demand
                 shop.i_f -= demand
                 demand = 0
+            # what if they both cant afford it.... will it just try and do this?
             elif self.m_h < (shop.p_f * demand):
                 demand_new = self.m_h / shop.p_f
-                self.m_h -= shop.p_f * demand_new
-                # stop from going -ve from fp drift 
-                self.m_h = max(self.m_h, 0.0)
-                shop.m_f += shop.p_f * demand_new
-                shop.i_f -= demand_new
-                demand -= demand_new
+                # do i need to then check here if the firm can do it 
+                if shop.i_f >= demand_new:
+                    self.m_h -= shop.p_f * demand_new
+                    # stop from going -ve from fp drift 
+                    self.m_h = max(self.m_h, 0.0)
+                    shop.m_f += shop.p_f * demand_new
+                    shop.i_f -= demand_new
+                    demand -= demand_new
             elif shop.i_f < demand:  
                 self.demand_const = True  
                 self.m_h -= shop.p_f * shop.i_f
@@ -84,7 +87,7 @@ class Household(mesa.Agent):
             typeA = random.choice(self.type_a_connections)
             all_firms = set(self.model.agents.select(agent_type=Firm))
             no_type_as = list(all_firms - set(self.type_a_connections))
-            weights = [max(1.0, len(f.workers)) for f in no_type_as]
+            weights = [len(f.workers) for f in no_type_as]
             if sum(weights) == 0:
                 new_firm = random.choice(no_type_as)
             else:
@@ -117,7 +120,7 @@ class Household(mesa.Agent):
             firms = random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
             for f in firms:
                 if f.n_positions > len(f.workers):
-                    if f.w_f >= self.w_h:
+                    if f.w_f > 0: # "greater than his currently received wage"? or meant to be w_h
                         self.type_b_connection = f
                         f.workers.append(self)
                         break
@@ -125,7 +128,9 @@ class Household(mesa.Agent):
         else:
             if self.type_b_connection.w_f >= self.w_h:
                 if random.random() < pie:
-                    f = random.choice(list(self.model.agents.select(agent_type=Firm)))
+                    all_firms = set(self.model.agents.select(agent_type=Firm))
+                    no_type_b = list(all_firms - self.type_b_connection)
+                    f = random.choice(no_type_b)
                     if f.n_positions > len(f.workers):
                         if f.w_f >= self.type_b_connection.w_f:
                             self.type_b_connection.workers.remove(self)
@@ -133,12 +138,14 @@ class Household(mesa.Agent):
                             f.workers.append(self)
             # unsatisfied
             else: 
-                f = random.choice(list(self.model.agents.select(agent_type=Firm)))
+                all_firms = set(self.model.agents.select(agent_type=Firm))
+                no_type_b = list(all_firms - self.type_b_connection)
+                f = random.choice(no_type_b)                
                 if f.n_positions > len(f.workers):
-                        if f.w_f >= self.type_b_connection.w_f:
-                            self.type_b_connection.workers.remove(self)
-                            self.type_b_connection = f
-                            f.workers.append(self)
+                    if f.w_f >= self.type_b_connection.w_f:
+                        self.type_b_connection.workers.remove(self)
+                        self.type_b_connection = f
+                        f.workers.append(self)
 
 
 class Firm(mesa.Agent):
@@ -235,7 +242,7 @@ class Firm(mesa.Agent):
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
         # only if inventory under i_f_lowbar and all positions are currently full
-        if self.i_f < i_f_lowerbar and self.n_positions <= len(self.workers):
+        if self.i_f < i_f_lowerbar:
             self.n_positions += 1
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
             to_fire = random.choice(self.workers)
