@@ -80,7 +80,6 @@ class Household(mesa.Agent):
             if self.income > self.w_h:
                 self.w_h = self.income
         else:
-            #WROGN\
             self.w_h = self.w_h * 0.9
 
     def search_connections(self, psi_price, xi, psi_quant):
@@ -130,7 +129,7 @@ class Household(mesa.Agent):
             if self.type_b_connection.w_f >= self.w_h:
                 if random.random() < pie:
                     all_firms = set(self.model.agents.select(agent_type=Firm))
-                    no_type_b = list(all_firms - self.type_b_connection)
+                    no_type_b = list(all_firms - {self.type_b_connection})
                     f = random.choice(no_type_b)
                     if f.n_positions > len(f.workers):
                         if f.w_f >= self.type_b_connection.w_f:
@@ -140,7 +139,7 @@ class Household(mesa.Agent):
             # unsatisfied
             else: 
                 all_firms = set(self.model.agents.select(agent_type=Firm))
-                no_type_b = list(all_firms - self.type_b_connection)
+                no_type_b = list(all_firms - {self.type_b_connection})
                 f = random.choice(no_type_b)                
                 if f.n_positions > len(f.workers):
                     if f.w_f >= self.type_b_connection.w_f:
