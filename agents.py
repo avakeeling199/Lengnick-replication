@@ -41,40 +41,24 @@ class Household(mesa.Agent):
         shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
             # track demand for each firm
-            
-            if shop.i_f >= demand and self.m_h >= (shop.p_f * demand):
-                self.m_h -= shop.p_f * demand
-                # guard from going -ve 
-                self.m_h = max(self.m_h, 0.0)
-                shop.m_f += shop.p_f * demand
-                shop.i_f -= demand
-                shop.demand += demand
-                demand = 0
+            affordable = self.m_h / shop.p_f
+            transaction = min(demand, affordable, shop.i_f)
 
-            # what if they both cant afford it.... will it just try and do this?
-            elif self.m_h < (shop.p_f * demand):
-                demand_new = self.m_h / shop.p_f
-                # do i need to then check here if the firm can do it 
-                if shop.i_f >= demand_new:
-                    self.m_h -= shop.p_f * demand_new
-                    # stop from going -ve from fp drift 
-                    self.m_h = max(self.m_h, 0.0)
-                    shop.m_f += shop.p_f * demand_new
-                    shop.i_f -= demand_new
-                    shop.demand += demand_new
-                    demand -= demand_new
-            elif shop.i_f < demand:  
-                self.demand_const = True  
-                self.m_h -= shop.p_f * shop.i_f
-                # guard from going -ve 
-                self.m_h = max(self.m_h, 0.0)
-                shop.m_f += shop.p_f * shop.i_f
+            is_stockout = shop.i_f < demand and shop.i_f < affordable
+
+            if is_stockout:
+                self.demand_const = True
                 self.demand_const_shops[shop] = self.demand_const_shops.get(shop, 0) + (demand - shop.i_f)
-                demand -= shop.i_f
-                shop.demand += shop.i_f
-                shop.i_f = 0
+
+            cost = shop.p_f * transaction 
+            self.m_h -= cost 
+            self.m_h = max(self.m_h, 0.0)
+            shop.m_f += cost
+            shop.i_f -= transaction
+            shop.demand += transaction
+
             if demand <= 0.05 * og_demand:
-                break   
+                break  
 
     def adjust_reservation_wage(self):
         """ adjust reservation wage according to last months income"""
@@ -249,7 +233,8 @@ class Firm(mesa.Agent):
         i_f_lowerbar = phi_emp_lower * self.demand
         # only if inventory under i_f_lowbar and all positions are currently full
         if self.i_f < i_f_lowerbar:
-            self.open_position = True
+            self.open_position = (self.to_fire == [])
+            self.to_fire = []
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
             to_fire = self.random.choice(self.workers)
             self.to_fire.append(to_fire)
