@@ -114,12 +114,18 @@ class LegnickModel(mesa.Model):
                                                     phi_emp_lower=self.phi_emp_lower)
             
             # households:
+            # shuffle once, reuse the same order for every procedure this month start 
+            hh_order = list(self.Households)
+            self.random.shuffle(hh_order)
             # each search for better type_a connections
-            self.agents.select(agent_type=Household).shuffle_do("search_connections", psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
+            for h in hh_order:
+                h.search_connections(psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
             # job search 
-            self.agents.select(agent_type=Household).do("job_search", beta=self.beta, pie=self.pie)
+            for h in hh_order:
+                h.job_search(beta=self.beta, pie=self.pie)
             # decide how much m_h to spend on consumption goods
-            self.agents.select(agent_type=Household).do("monthly_consumption", alpha=self.alpha)
+            for h in hh_order:
+                h.monthly_consumption(alpha=self.alpha)
             
 
         # daily: 

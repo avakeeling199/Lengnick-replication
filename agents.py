@@ -9,7 +9,7 @@ class Household(mesa.Agent):
         super().__init__(model)
 
         self.w_h = 3.0 # reservation wage
-        self.m_h = 100.0 # liquidity
+        self.m_h = 3100 # liquidity
         self.type_a_connections = [] # list of firms 
         self.type_b_connection = None # employment
         self.c_r_h = 0 # demand
@@ -41,14 +41,16 @@ class Household(mesa.Agent):
         shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
             # track demand for each firm
-            shop.demand += demand
+            
             if shop.i_f >= demand and self.m_h >= (shop.p_f * demand):
                 self.m_h -= shop.p_f * demand
                 # guard from going -ve 
                 self.m_h = max(self.m_h, 0.0)
                 shop.m_f += shop.p_f * demand
                 shop.i_f -= demand
+                shop.demand += demand
                 demand = 0
+
             # what if they both cant afford it.... will it just try and do this?
             elif self.m_h < (shop.p_f * demand):
                 demand_new = self.m_h / shop.p_f
@@ -59,6 +61,7 @@ class Household(mesa.Agent):
                     self.m_h = max(self.m_h, 0.0)
                     shop.m_f += shop.p_f * demand_new
                     shop.i_f -= demand_new
+                    shop.demand += demand_new
                     demand -= demand_new
             elif shop.i_f < demand:  
                 self.demand_const = True  
@@ -68,6 +71,7 @@ class Household(mesa.Agent):
                 shop.m_f += shop.p_f * shop.i_f
                 self.demand_const_shops[shop] = self.demand_const_shops.get(shop, 0) + (demand - shop.i_f)
                 demand -= shop.i_f
+                shop.demand += shop.i_f
                 shop.i_f = 0
             if demand <= 0.05 * og_demand:
                 break   
@@ -121,6 +125,7 @@ class Household(mesa.Agent):
                     if f.w_f >= self.w_h: # "greater than his currently received wage"? or meant to be w_h
                         self.type_b_connection = f
                         f.workers.append(self)
+                        f.open_position = False
                         break
         # satisfied
         else:
@@ -134,6 +139,7 @@ class Household(mesa.Agent):
                             self.type_b_connection.workers.remove(self)
                             self.type_b_connection = f
                             f.workers.append(self)
+                            f.open_position = False
             # unsatisfied
             else: 
                 all_firms = set(self.model.agents.select(agent_type=Firm))
@@ -144,6 +150,7 @@ class Household(mesa.Agent):
                         self.type_b_connection.workers.remove(self)
                         self.type_b_connection = f
                         f.workers.append(self)
+                        f.open_position = False
 
 
 class Firm(mesa.Agent):
@@ -155,7 +162,7 @@ class Firm(mesa.Agent):
         self.m_f = 0.0 # liquidity
         self.i_f = 0.0 # inventory
         self.p_f = 25 # goods price
-        self.w_f = 63 * self.p_f # wage rate
+        self.w_f = 1428 # wage rate
         self.workers = [] # list of workers
         self.buffer = 0
         self.open_position = False #open position boolean so there can be only one 
