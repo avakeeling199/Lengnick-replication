@@ -1,7 +1,5 @@
 import numpy as np
 import mesa
-import random
-
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -40,7 +38,7 @@ class Household(mesa.Agent):
         """
         demand = self.c_r_h / 21
         og_demand = demand
-        shops = random.sample(self.type_a_connections, len(self.type_a_connections))
+        shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
             # track demand for each firm
             shop.demand += demand
@@ -83,32 +81,32 @@ class Household(mesa.Agent):
             self.w_h = self.w_h * 0.9
 
     def search_connections(self, psi_price, xi, psi_quant):
-        if random.random() < psi_price:
-            typeA = random.choice(self.type_a_connections)
+        if self.random.random() < psi_price:
+            typeA = self.random.choice(self.type_a_connections)
             all_firms = set(self.model.agents.select(agent_type=Firm))
             no_type_as = list(all_firms - set(self.type_a_connections))
             weights = [len(f.workers) for f in no_type_as]
             if sum(weights) == 0:
-                new_firm = random.choice(no_type_as)
+                new_firm = self.random.choice(no_type_as)
             else:
-                new_firm = random.choices(no_type_as, weights=weights, k=1)[0]
+                new_firm = self.random.choices(no_type_as, weights=weights, k=1)[0]
 
             if new_firm.p_f < (1 - xi) * typeA.p_f:
                 self.type_a_connections.remove(typeA)
                 self.type_a_connections.append(new_firm)
             
         if self.demand_const == True:
-            if random.random() < psi_quant:
+            if self.random.random() < psi_quant:
                 
                 shops = list(self.demand_const_shops.keys())
                 weights = list(self.demand_const_shops.values())
-                shop = random.choices(shops, weights=weights, k=1)[0]
+                shop = self.random.choices(shops, weights=weights, k=1)[0]
                 if shop in self.type_a_connections:
 
                     all_firms = set(self.model.agents.select(agent_type=Firm))
                     no_type_as = list(all_firms - set(self.type_a_connections))
                     self.type_a_connections.remove(shop)
-                    new_shop = random.choice(no_type_as)
+                    new_shop = self.random.choice(no_type_as)
                     self.type_a_connections.append(new_shop)
         
         self.demand_const = False
@@ -117,20 +115,20 @@ class Household(mesa.Agent):
     def job_search(self, beta, pie):
         # unemployed
         if self.type_b_connection == None:
-            firms = random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
+            firms = self.random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
             for f in firms:
                 if f.n_positions > len(f.workers):
-                    if f.w_f > 0: # "greater than his currently received wage"? or meant to be w_h
+                    if f.w_f >= self.w_h: # "greater than his currently received wage"? or meant to be w_h
                         self.type_b_connection = f
                         f.workers.append(self)
                         break
         # satisfied
         else:
             if self.type_b_connection.w_f >= self.w_h:
-                if random.random() < pie:
+                if self.random.random() < pie:
                     all_firms = set(self.model.agents.select(agent_type=Firm))
                     no_type_b = list(all_firms - {self.type_b_connection})
-                    f = random.choice(no_type_b)
+                    f = self.random.choice(no_type_b)
                     if f.n_positions > len(f.workers):
                         if f.w_f >= self.type_b_connection.w_f:
                             self.type_b_connection.workers.remove(self)
@@ -140,9 +138,9 @@ class Household(mesa.Agent):
             else: 
                 all_firms = set(self.model.agents.select(agent_type=Firm))
                 no_type_b = list(all_firms - {self.type_b_connection})
-                f = random.choice(no_type_b)                
+                f = self.random.choice(no_type_b)                
                 if f.n_positions > len(f.workers):
-                    if f.w_f >= self.type_b_connection.w_f:
+                    if f.w_f >= self.w_h:
                         self.type_b_connection.workers.remove(self)
                         self.type_b_connection = f
                         f.workers.append(self)
@@ -223,7 +221,7 @@ class Firm(mesa.Agent):
         set wages for the month
         """
         # draw from uniform dist
-        mu = random.uniform(0, delta)
+        mu = self.random.uniform(0, delta)
         l_f = len(self.workers)
         if self.n_positions > l_f:
             self.w_f = self.w_f * (1 + mu)
@@ -245,7 +243,7 @@ class Firm(mesa.Agent):
         if self.i_f < i_f_lowerbar:
             self.n_positions += 1
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
-            to_fire = random.choice(self.workers)
+            to_fire = self.random.choice(self.workers)
             self.to_fire.append(to_fire)
             self.n_positions = max(0.0, self.n_positions - 1)
 
@@ -264,7 +262,7 @@ class Firm(mesa.Agent):
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
         mc_f = self.w_f / ld
-        v = random.uniform(0, vartheta)
+        v = self.random.uniform(0, vartheta)
 
         p_f_upperbar = phi_price_upper * mc_f
         p_f_lowerbar = phi_price_lower * mc_f
@@ -273,14 +271,14 @@ class Firm(mesa.Agent):
             # if the price is above p_f_upperbar 
             if self.p_f > p_f_lowerbar:
                 # lower prices with prob theta 
-                if random.random() < theta:
+                if self.random.random() < theta:
                     self.p_f = self.p_f * (1 - v)
         
         if self.i_f < i_f_lowerbar:
             # if the price is lower that p_f_lowerbar
             if self.p_f < p_f_upperbar:
                 # up prices with prob theta 
-                if random.random() < theta:
+                if self.random.random() < theta:
                     self.p_f = self.p_f * (1 + v)
 
         self.demand = 0

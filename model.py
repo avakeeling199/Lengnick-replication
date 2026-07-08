@@ -56,7 +56,7 @@ class LegnickModel(mesa.Model):
 
         for h in Households:
             
-            type_a = random.sample(firms, 7)
+            type_a = self.random.sample(firms, 7)
             h.type_a_connections = type_a
         
         # initialise type b connections
