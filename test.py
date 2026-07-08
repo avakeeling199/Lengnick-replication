@@ -3,7 +3,7 @@ from model import LegnickModel
 import matplotlib.pyplot as plt
 
 model = LegnickModel()
-for i in range(20000):
+for i in range(10000):
     model.step()
 
 data = model.datacollector.get_model_vars_dataframe()

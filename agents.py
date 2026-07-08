@@ -117,7 +117,7 @@ class Household(mesa.Agent):
         if self.type_b_connection == None:
             firms = self.random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
             for f in firms:
-                if f.n_positions > len(f.workers):
+                if f.open_position == True:
                     if f.w_f >= self.w_h: # "greater than his currently received wage"? or meant to be w_h
                         self.type_b_connection = f
                         f.workers.append(self)
@@ -129,7 +129,7 @@ class Household(mesa.Agent):
                     all_firms = set(self.model.agents.select(agent_type=Firm))
                     no_type_b = list(all_firms - {self.type_b_connection})
                     f = self.random.choice(no_type_b)
-                    if f.n_positions > len(f.workers):
+                    if f.open_position == True:
                         if f.w_f >= self.type_b_connection.w_f:
                             self.type_b_connection.workers.remove(self)
                             self.type_b_connection = f
@@ -139,7 +139,7 @@ class Household(mesa.Agent):
                 all_firms = set(self.model.agents.select(agent_type=Firm))
                 no_type_b = list(all_firms - {self.type_b_connection})
                 f = self.random.choice(no_type_b)                
-                if f.n_positions > len(f.workers):
+                if f.open_position == True:
                     if f.w_f >= self.w_h:
                         self.type_b_connection.workers.remove(self)
                         self.type_b_connection = f
@@ -158,7 +158,8 @@ class Firm(mesa.Agent):
         self.w_f = 3.0 # wage rate
         self.workers = [] # list of workers
         self.buffer = 0
-        self.n_positions = 10
+        self.open_position = False #open position boolean so there can be only one 
+        #self.n_positions = 10 - dont need this anymore
         self.months_full = 0
         self.demand = 0
         self.to_fire = [] # workers that are being fired next month
@@ -223,7 +224,7 @@ class Firm(mesa.Agent):
         # draw from uniform dist
         mu = self.random.uniform(0, delta)
         l_f = len(self.workers)
-        if self.n_positions > l_f:
+        if self.open_position == True:
             self.w_f = self.w_f * (1 + mu)
             self.months_full = 0
 
@@ -241,11 +242,11 @@ class Firm(mesa.Agent):
         i_f_lowerbar = phi_emp_lower * self.demand
         # only if inventory under i_f_lowbar and all positions are currently full
         if self.i_f < i_f_lowerbar:
-            self.n_positions += 1
+            self.open_position = True
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
             to_fire = self.random.choice(self.workers)
             self.to_fire.append(to_fire)
-            self.n_positions = max(0.0, self.n_positions - 1)
+            self.open_position = False
 
 
     def fire_workers(self):
