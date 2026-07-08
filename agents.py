@@ -8,7 +8,7 @@ class Household(mesa.Agent):
         # pass the params to parent class
         super().__init__(model)
 
-        self.w_h = 3.0 # reservation wage
+        self.w_h = 0 # reservation wage
         self.m_h = 3100 # liquidity
         self.type_a_connections = [] # list of firms 
         self.type_b_connection = None # employment
@@ -56,6 +56,7 @@ class Household(mesa.Agent):
             shop.m_f += cost
             shop.i_f -= transaction
             shop.demand += transaction
+            demand -= transaction
 
             if demand <= 0.05 * og_demand:
                 break  
@@ -152,7 +153,7 @@ class Firm(mesa.Agent):
         self.open_position = False #open position boolean so there can be only one 
         #self.n_positions = 10 - dont need this anymore
         self.months_full = 0
-        self.demand = 0
+        self.demand = 1
         self.to_fire = [] # workers that are being fired next month
 
     def produce(self, ld):

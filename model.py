@@ -74,18 +74,7 @@ class LegnickModel(mesa.Model):
             
             type_a = self.random.sample(self.firms, 7)
             h.type_a_connections = type_a
-        
-        # initialise type b connections
-        household_list = list(self.Households)
-        self.random.shuffle(household_list)
-        for i, f in enumerate(self.firms):
-            for h in household_list[i * 10 : (i + 1) * 10]:
-                h.type_b_connection = f
-                f.workers.append(h)
-            # give firm enough capital to pay first months wages
-            f.m_f = f.w_f * len(f.workers)
-            f.i_f = self.ld * len(f.workers) * 21
-            f.demand = (n_households / n_firms) * (100.0 ** alpha)  # expected monthly demand ≈ 631
+
 
     def step(self):
         self.counter += 1
