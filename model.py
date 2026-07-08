@@ -56,9 +56,7 @@ class LegnickModel(mesa.Model):
             "Employment": lambda m: sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None),
             "AvgPrice": lambda m: sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
             "AvgWage": lambda m: sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
-            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm)),
-            "PositionsStd": lambda m: statistics.stdev(f.n_positions for f in m.agents.select(agent_type=Firm)),
-            "AvgPositions": lambda m: sum(f.n_positions for f in m.agents.select(agent_type=Firm)) / m.n_firms
+            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm))
 
 }
         )

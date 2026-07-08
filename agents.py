@@ -154,8 +154,8 @@ class Firm(mesa.Agent):
 
         self.m_f = 0.0 # liquidity
         self.i_f = 0.0 # inventory
-        self.p_f = 1.0 # goods price
-        self.w_f = 3.0 # wage rate
+        self.p_f = 25 # goods price
+        self.w_f = 63 * self.p_f # wage rate
         self.workers = [] # list of workers
         self.buffer = 0
         self.open_position = False #open position boolean so there can be only one 
@@ -262,7 +262,7 @@ class Firm(mesa.Agent):
         # only consider if inventory in the right amount
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
-        mc_f = self.w_f / ld
+        mc_f = self.w_f / (21 * ld) # marginal costs for the month rather than the day?
         v = self.random.uniform(0, vartheta)
 
         p_f_upperbar = phi_price_upper * mc_f
