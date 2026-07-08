@@ -1,8 +1,26 @@
 import numpy as np
 import mesa
-import random
 from agents import Household, Firm
 import statistics
+
+def distribute_all_profits(model):
+    profits = sum(f.m_f for f in model.firms)
+    if profits <= 0:
+        return
+
+    for f in model.firms:
+        f.m_f = 0.0
+
+    households = model.Households
+    total_liquidity = sum(h.m_h for h in households)
+
+    if total_liquidity <= 0:
+        share = profits / len(households)
+        for h in households:
+            h.m_h += share
+    else:
+        for h in households:
+            h.m_h += profits * h.m_h / total_liquidity
 
 class LegnickModel(mesa.Model):
     """the Legnick model"""
@@ -49,20 +67,20 @@ class LegnickModel(mesa.Model):
         Household.create_agents(model=self, n=n_households)
         Firm.create_agents(model=self, n=n_firms)
 
-        Households = self.agents.select(agent_type = Household)
-        firms = list(self.agents.select(agent_type = Firm))
+        self.Households = self.agents.select(agent_type = Household)
+        self.firms = list(self.agents.select(agent_type = Firm))
 
         # initialise trading connectons (type a)
 
-        for h in Households:
+        for h in self.Households:
             
-            type_a = self.random.sample(firms, 7)
+            type_a = self.random.sample(self.firms, 7)
             h.type_a_connections = type_a
         
         # initialise type b connections
-        household_list = list(Households)
-        random.shuffle(household_list)
-        for i, f in enumerate(firms):
+        household_list = list(self.Households)
+        self.random.shuffle(household_list)
+        for i, f in enumerate(self.firms):
             for h in household_list[i * 10 : (i + 1) * 10]:
                 h.type_b_connection = f
                 f.workers.append(h)
@@ -125,7 +143,8 @@ class LegnickModel(mesa.Model):
             
             self.agents.select(agent_type=Firm).do("pay_wages")
             self.agents.select(agent_type=Firm).do("add_to_buffer", chi=self.chi)
-            self.agents.select(agent_type=Firm).do("distribute_profits")
+            #self.agents.select(agent_type=Firm).do("distribute_profits")
+            distribute_all_profits(self)
 
 
             # households:
