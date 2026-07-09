@@ -85,6 +85,9 @@ class LegnickModel(mesa.Model):
         # collect data
         self.datacollector.collect(self)
 
+        hh_order = list(self.Households)
+        self.random.shuffle(hh_order)
+
         if self.counter % 21 == 1:
             print(f"BEGINNING OF MONTH, counter={self.counter}")
 
@@ -107,8 +110,6 @@ class LegnickModel(mesa.Model):
             
             # households:
             # shuffle once, reuse the same order for every procedure this month start 
-            hh_order = list(self.Households)
-            self.random.shuffle(hh_order)
             # each search for better type_a connections
             for h in hh_order:
                 h.search_connections(psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
@@ -124,8 +125,8 @@ class LegnickModel(mesa.Model):
         # households:
         # use their m_h to buy goods from random type_a connection
         # demand is equally spread thru month
-        
-        self.agents.select(agent_type=Household).shuffle_do("buy_goods", n=self.n)
+        for h in hh_order:
+            h.buy_goods(n=self.n)
         
         # firms produce
         self.agents.select(agent_type=Firm).do("produce", ld=self.ld)

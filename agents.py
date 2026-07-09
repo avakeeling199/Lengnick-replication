@@ -1,5 +1,6 @@
 import numpy as np
 import mesa
+import math
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -41,7 +42,7 @@ class Household(mesa.Agent):
         shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
             # track demand for each firm
-            affordable = self.m_h / shop.p_f
+            affordable = self.m_h // shop.p_f
             transaction = min(demand, affordable, shop.i_f)
 
             is_stockout = shop.i_f < demand and shop.i_f < affordable
@@ -145,8 +146,8 @@ class Firm(mesa.Agent):
     def __init__(self, model):
         super().__init__(model)
 
-        self.m_f = 0.0 # liquidity
-        self.i_f = 0.0 # inventory
+        self.m_f = 0 # liquidity
+        self.i_f = 0 # inventory
         self.p_f = 25 # goods price
         self.w_f = 1428 # wage rate
         self.workers = [] # list of workers
@@ -181,7 +182,7 @@ class Firm(mesa.Agent):
                 # store income
                 h.income = self.w_f
         else:
-            new_wage = self.m_f / l_f
+            new_wage = self.m_f // l_f
             for h in self.workers:
                 self.m_f -= new_wage
                 h.m_h += new_wage
@@ -195,8 +196,8 @@ class Firm(mesa.Agent):
         l_f = len(self.workers)
         if self.m_f > chi * self.w_f * l_f:
             # add to buffer - full amt
-            self.buffer += chi * self.w_f * l_f
-            self.m_f -= chi * self.w_f * l_f
+            self.buffer += math.ceil(chi * self.w_f * l_f)
+            self.m_f -= math.ceil(chi * self.w_f * l_f)
         elif self.m_f > 0:
             # add to buffer - not full amt
             self.buffer += self.m_f
@@ -218,13 +219,14 @@ class Firm(mesa.Agent):
         """
         # draw from uniform dist
         mu = self.random.uniform(0, delta)
-        l_f = len(self.workers)
         if self.open_position == True:
             self.w_f = self.w_f * (1 + mu)
+            self.w_f = max(1, math.ceil(self.w_f)) # round
             self.months_full = 0
 
-        elif self.months_full > gamma:
+        elif self.months_full >= gamma:
             self.w_f = self.w_f * (1 - mu)
+            self.w_f = math.floor(self.w_f)
             self.months_full = 0
         else:
             self.months_full += 1
@@ -294,6 +296,7 @@ class Firm(mesa.Agent):
                 # lower prices with prob theta 
                 if self.random.random() < theta:
                     self.p_f = self.p_f * (1 - v)
+                    self.p_f = max(1, math.floor(self.p_f))
         
         if self.i_f < i_f_lowerbar:
             # if the price is lower that p_f_lowerbar
@@ -301,6 +304,7 @@ class Firm(mesa.Agent):
                 # up prices with prob theta 
                 if self.random.random() < theta:
                     self.p_f = self.p_f * (1 + v)
+                    self.p_f = math.ceil(self.p_f)
 
         self.demand = 0
         
