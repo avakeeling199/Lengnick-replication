@@ -36,7 +36,7 @@ class Household(mesa.Agent):
         - if hh cant afford - buy all they can afford 
         - stop when demand 95% satisfied
         """
-        demand = self.c_r_h / 21
+        demand = self.c_r_h // 21
         og_demand = demand
         shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
