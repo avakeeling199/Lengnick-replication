@@ -1,5 +1,6 @@
 import numpy as np
 import mesa
+import math
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -8,8 +9,8 @@ class Household(mesa.Agent):
         # pass the params to parent class
         super().__init__(model)
 
-        self.w_h = 3.0 # reservation wage
-        self.m_h = 100.0 # liquidity
+        self.w_h = 0 # reservation wage
+        self.m_h = 3100 # liquidity
         self.type_a_connections = [] # list of firms 
         self.type_b_connection = None # employment
         self.c_r_h = 0 # demand
@@ -36,41 +37,30 @@ class Household(mesa.Agent):
         - if hh cant afford - buy all they can afford 
         - stop when demand 95% satisfied
         """
-        demand = self.c_r_h / 21
+        demand = self.c_r_h // 21
         og_demand = demand
         shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
         for shop in shops[:n]:
             # track demand for each firm
-            shop.demand += demand
-            if shop.i_f >= demand and self.m_h >= (shop.p_f * demand):
-                self.m_h -= shop.p_f * demand
-                # guard from going -ve 
-                self.m_h = max(self.m_h, 0.0)
-                shop.m_f += shop.p_f * demand
-                shop.i_f -= demand
-                demand = 0
-            # what if they both cant afford it.... will it just try and do this?
-            elif self.m_h < (shop.p_f * demand):
-                demand_new = self.m_h / shop.p_f
-                # do i need to then check here if the firm can do it 
-                if shop.i_f >= demand_new:
-                    self.m_h -= shop.p_f * demand_new
-                    # stop from going -ve from fp drift 
-                    self.m_h = max(self.m_h, 0.0)
-                    shop.m_f += shop.p_f * demand_new
-                    shop.i_f -= demand_new
-                    demand -= demand_new
-            elif shop.i_f < demand:  
-                self.demand_const = True  
-                self.m_h -= shop.p_f * shop.i_f
-                # guard from going -ve 
-                self.m_h = max(self.m_h, 0.0)
-                shop.m_f += shop.p_f * shop.i_f
+            affordable = self.m_h // shop.p_f
+            transaction = min(demand, affordable, shop.i_f)
+
+            is_stockout = shop.i_f < demand and shop.i_f < affordable
+
+            if is_stockout:
+                self.demand_const = True
                 self.demand_const_shops[shop] = self.demand_const_shops.get(shop, 0) + (demand - shop.i_f)
-                demand -= shop.i_f
-                shop.i_f = 0
+
+            cost = shop.p_f * transaction 
+            self.m_h -= cost 
+            self.m_h = max(self.m_h, 0.0)
+            shop.m_f += cost
+            shop.i_f -= transaction
+            shop.demand += transaction
+            demand -= transaction
+
             if demand <= 0.05 * og_demand:
-                break   
+                break  
 
     def adjust_reservation_wage(self):
         """ adjust reservation wage according to last months income"""
@@ -89,7 +79,8 @@ class Household(mesa.Agent):
             if sum(weights) == 0:
                 new_firm = self.random.choice(no_type_as)
             else:
-                new_firm = self.random.choices(no_type_as, weights=weights, k=1)[0]
+                #new_firm = self.random.choices(no_type_as, weights=weights, k=1)[0]
+                new_firm = self.random.choices(no_type_as, k=1)[0]
 
             if new_firm.p_f < (1 - xi) * typeA.p_f:
                 self.type_a_connections.remove(typeA)
@@ -117,10 +108,11 @@ class Household(mesa.Agent):
         if self.type_b_connection == None:
             firms = self.random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
             for f in firms:
-                if f.n_positions > len(f.workers):
+                if f.open_position == True:
                     if f.w_f >= self.w_h: # "greater than his currently received wage"? or meant to be w_h
                         self.type_b_connection = f
                         f.workers.append(self)
+                        f.open_position = False
                         break
         # satisfied
         else:
@@ -129,21 +121,23 @@ class Household(mesa.Agent):
                     all_firms = set(self.model.agents.select(agent_type=Firm))
                     no_type_b = list(all_firms - {self.type_b_connection})
                     f = self.random.choice(no_type_b)
-                    if f.n_positions > len(f.workers):
-                        if f.w_f >= self.type_b_connection.w_f:
+                    if f.open_position == True:
+                        if f.w_f >= self.w_h or f.w_f >= self.type_b_connection.w_f:
                             self.type_b_connection.workers.remove(self)
                             self.type_b_connection = f
                             f.workers.append(self)
+                            f.open_position = False
             # unsatisfied
             else: 
                 all_firms = set(self.model.agents.select(agent_type=Firm))
                 no_type_b = list(all_firms - {self.type_b_connection})
                 f = self.random.choice(no_type_b)                
-                if f.n_positions > len(f.workers):
-                    if f.w_f >= self.w_h:
+                if f.open_position == True:
+                    if f.w_f >= self.w_h or f.w_f >= self.type_b_connection.w_f:
                         self.type_b_connection.workers.remove(self)
                         self.type_b_connection = f
                         f.workers.append(self)
+                        f.open_position = False
 
 
 class Firm(mesa.Agent):
@@ -152,15 +146,16 @@ class Firm(mesa.Agent):
     def __init__(self, model):
         super().__init__(model)
 
-        self.m_f = 0.0 # liquidity
-        self.i_f = 0.0 # inventory
-        self.p_f = 1.0 # goods price
-        self.w_f = 3.0 # wage rate
+        self.m_f = 0 # liquidity
+        self.i_f = 0 # inventory
+        self.p_f = 25 # goods price
+        self.w_f = 1428 # wage rate
         self.workers = [] # list of workers
         self.buffer = 0
-        self.n_positions = 10
+        self.open_position = False #open position boolean so there can be only one 
+        #self.n_positions = 10 - dont need this anymore
         self.months_full = 0
-        self.demand = 0
+        self.demand = 1
         self.to_fire = [] # workers that are being fired next month
 
     def produce(self, ld):
@@ -187,20 +182,22 @@ class Firm(mesa.Agent):
                 # store income
                 h.income = self.w_f
         else:
-            new_wage = self.m_f / l_f
+            new_wage = self.m_f // l_f
             for h in self.workers:
                 self.m_f -= new_wage
                 h.m_h += new_wage
                 # store income
                 h.income = new_wage
+                # change wage permanently 
+                self.w_f = new_wage
 
     def add_to_buffer(self, chi):
         """add left over liquidity to buffer """
         l_f = len(self.workers)
         if self.m_f > chi * self.w_f * l_f:
             # add to buffer - full amt
-            self.buffer += chi * self.w_f * l_f
-            self.m_f -= chi * self.w_f * l_f
+            self.buffer += math.ceil(chi * self.w_f * l_f)
+            self.m_f -= math.ceil(chi * self.w_f * l_f)
         elif self.m_f > 0:
             # add to buffer - not full amt
             self.buffer += self.m_f
@@ -222,13 +219,14 @@ class Firm(mesa.Agent):
         """
         # draw from uniform dist
         mu = self.random.uniform(0, delta)
-        l_f = len(self.workers)
-        if self.n_positions > l_f:
+        if self.open_position == True:
             self.w_f = self.w_f * (1 + mu)
+            self.w_f = max(1, math.ceil(self.w_f)) # round
             self.months_full = 0
 
-        elif self.months_full > gamma:
+        elif self.months_full >= gamma:
             self.w_f = self.w_f * (1 - mu)
+            self.w_f = math.floor(self.w_f)
             self.months_full = 0
         else:
             self.months_full += 1
@@ -241,11 +239,12 @@ class Firm(mesa.Agent):
         i_f_lowerbar = phi_emp_lower * self.demand
         # only if inventory under i_f_lowbar and all positions are currently full
         if self.i_f < i_f_lowerbar:
-            self.n_positions += 1
+            self.open_position = (self.to_fire == [])
+            self.to_fire = []
         elif self.i_f > i_f_upperbar and len(self.workers) > 0:
             to_fire = self.random.choice(self.workers)
             self.to_fire.append(to_fire)
-            self.n_positions = max(0.0, self.n_positions - 1)
+            self.open_position = False
 
 
     def fire_workers(self):
@@ -257,11 +256,35 @@ class Firm(mesa.Agent):
                 h.type_b_connection = None           
         self.to_fire = []
 
+    def set_employment_and_fire(self, phi_emp_upper, phi_emp_lower):
+        """
+        merge set employment and fire workers so that they run in the correct order. cancels
+        firing if things have changed for the firm and they are now under the lower inv limit
+        """
+        i_f_upperbar = phi_emp_upper * self.demand
+        i_f_lowerbar = phi_emp_lower * self.demand
+        # only if inventory under i_f_lowbar and all positions are currently full
+        if self.i_f < i_f_lowerbar:
+            self.open_position = (self.to_fire == [])
+            self.to_fire = []
+        if self.to_fire:
+            for h in self.to_fire:
+                if h in self.workers:
+                    self.workers.remove(h)
+                    h.type_b_connection = None
+            self.to_fire = []
+
+        if self.i_f > i_f_upperbar and len(self.workers) > 0:
+            to_fire = self.random.choice(self.workers)
+            self.to_fire.append(to_fire)
+            self.open_position = False
+
+
     def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
         # only consider if inventory in the right amount
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
-        mc_f = self.w_f / ld
+        mc_f = self.w_f / (21 * ld) # marginal costs for the month rather than the day?
         v = self.random.uniform(0, vartheta)
 
         p_f_upperbar = phi_price_upper * mc_f
@@ -273,6 +296,7 @@ class Firm(mesa.Agent):
                 # lower prices with prob theta 
                 if self.random.random() < theta:
                     self.p_f = self.p_f * (1 - v)
+                    self.p_f = max(1, math.floor(self.p_f))
         
         if self.i_f < i_f_lowerbar:
             # if the price is lower that p_f_lowerbar
@@ -280,6 +304,7 @@ class Firm(mesa.Agent):
                 # up prices with prob theta 
                 if self.random.random() < theta:
                     self.p_f = self.p_f * (1 + v)
+                    self.p_f = math.ceil(self.p_f)
 
         self.demand = 0
         

@@ -1,8 +1,26 @@
 import numpy as np
 import mesa
-import random
 from agents import Household, Firm
 import statistics
+
+def distribute_all_profits(model):
+    profits = sum(f.m_f for f in model.firms)
+    if profits <= 0:
+        return
+
+    for f in model.firms:
+        f.m_f = 0.0
+
+    households = model.Households
+    total_liquidity = sum(h.m_h for h in households)
+
+    if total_liquidity <= 0:
+        share = profits / len(households)
+        for h in households:
+            h.m_h += share
+    else:
+        for h in households:
+            h.m_h += profits * h.m_h / total_liquidity
 
 class LegnickModel(mesa.Model):
     """the Legnick model"""
@@ -39,42 +57,36 @@ class LegnickModel(mesa.Model):
             "AvgPrice": lambda m: sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
             "AvgWage": lambda m: sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
             "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm)),
-            "PositionsStd": lambda m: statistics.stdev(f.n_positions for f in m.agents.select(agent_type=Firm)),
-            "AvgPositions": lambda m: sum(f.n_positions for f in m.agents.select(agent_type=Firm)) / m.n_firms
+            "PriceStd": lambda m: statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)]),
+            "WageStd": lambda m: statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)]),
+            "InvStd": lambda m: statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)]),
+            "NumOpenPositions": lambda m: sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position)
 
-}
+},
         )
 
         # create agents
         Household.create_agents(model=self, n=n_households)
         Firm.create_agents(model=self, n=n_firms)
 
-        Households = self.agents.select(agent_type = Household)
-        firms = list(self.agents.select(agent_type = Firm))
+        self.Households = self.agents.select(agent_type = Household)
+        self.firms = list(self.agents.select(agent_type = Firm))
 
         # initialise trading connectons (type a)
 
-        for h in Households:
+        for h in self.Households:
             
-            type_a = self.random.sample(firms, 7)
+            type_a = self.random.sample(self.firms, 7)
             h.type_a_connections = type_a
-        
-        # initialise type b connections
-        household_list = list(Households)
-        random.shuffle(household_list)
-        for i, f in enumerate(firms):
-            for h in household_list[i * 10 : (i + 1) * 10]:
-                h.type_b_connection = f
-                f.workers.append(h)
-            # give firm enough capital to pay first months wages
-            f.m_f = f.w_f * len(f.workers)
-            f.i_f = self.ld * len(f.workers) * 21
-            f.demand = (n_households / n_firms) * (100.0 ** alpha)  # expected monthly demand ≈ 631
+
 
     def step(self):
         self.counter += 1
         # collect data
         self.datacollector.collect(self)
+
+        hh_order = list(self.Households)
+        self.random.shuffle(hh_order)
 
         if self.counter % 21 == 1:
             print(f"BEGINNING OF MONTH, counter={self.counter}")
@@ -83,11 +95,10 @@ class LegnickModel(mesa.Model):
             # firms:
             # each decide how to set w_f
             self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
-            # fire workers from last month
-            self.agents.select(agent_type=Firm).do("fire_workers")
-            # set employment demand
-            self.agents.select(agent_type=Firm).do("set_employment", phi_emp_upper=self.phi_emp_upper,
+            # set employment demand and fire workers from last month
+            self.agents.select(agent_type=Firm).do("set_employment_and_fire", phi_emp_upper=self.phi_emp_upper, 
                                                     phi_emp_lower=self.phi_emp_lower)
+
             # set prices
             self.agents.select(agent_type=Firm).do("set_prices", phi_price_upper=self.phi_price_upper,
                                                     phi_price_lower=self.phi_price_lower,
@@ -98,20 +109,24 @@ class LegnickModel(mesa.Model):
                                                     phi_emp_lower=self.phi_emp_lower)
             
             # households:
+            # shuffle once, reuse the same order for every procedure this month start 
             # each search for better type_a connections
-            self.agents.select(agent_type=Household).shuffle_do("search_connections", psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
+            for h in hh_order:
+                h.search_connections(psi_price=self.psi_price, xi=self.xi, psi_quant=self.psi_quant)
             # job search 
-            self.agents.select(agent_type=Household).do("job_search", beta=self.beta, pie=self.pie)
+            for h in hh_order:
+                h.job_search(beta=self.beta, pie=self.pie)
             # decide how much m_h to spend on consumption goods
-            self.agents.select(agent_type=Household).do("monthly_consumption", alpha=self.alpha)
+            for h in hh_order:
+                h.monthly_consumption(alpha=self.alpha)
             
 
         # daily: 
         # households:
         # use their m_h to buy goods from random type_a connection
         # demand is equally spread thru month
-        
-        self.agents.select(agent_type=Household).shuffle_do("buy_goods", n=self.n)
+        for h in hh_order:
+            h.buy_goods(n=self.n)
         
         # firms produce
         self.agents.select(agent_type=Firm).do("produce", ld=self.ld)
@@ -125,7 +140,8 @@ class LegnickModel(mesa.Model):
             
             self.agents.select(agent_type=Firm).do("pay_wages")
             self.agents.select(agent_type=Firm).do("add_to_buffer", chi=self.chi)
-            self.agents.select(agent_type=Firm).do("distribute_profits")
+            #self.agents.select(agent_type=Firm).do("distribute_profits")
+            distribute_all_profits(self)
 
 
             # households:
