@@ -56,9 +56,13 @@ class LegnickModel(mesa.Model):
             "Employment": lambda m: sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None),
             "AvgPrice": lambda m: sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
             "AvgWage": lambda m: sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
-            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm))
+            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm)),
+            "PriceStd": lambda m: statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)]),
+            "WageStd": lambda m: statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)]),
+            "InvStd": lambda m: statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)]),
+            "NumOpenPositions": lambda m: sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position)
 
-}
+},
         )
 
         # create agents
@@ -88,11 +92,10 @@ class LegnickModel(mesa.Model):
             # firms:
             # each decide how to set w_f
             self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
-            # fire workers from last month
-            self.agents.select(agent_type=Firm).do("fire_workers")
-            # set employment demand
-            self.agents.select(agent_type=Firm).do("set_employment", phi_emp_upper=self.phi_emp_upper,
+            # set employment demand and fire workers from last month
+            self.agents.select(agent_type=Firm).do("set_employment_and_fire", phi_emp_upper=self.phi_emp_upper, 
                                                     phi_emp_lower=self.phi_emp_lower)
+
             # set prices
             self.agents.select(agent_type=Firm).do("set_prices", phi_price_upper=self.phi_price_upper,
                                                     phi_price_lower=self.phi_price_lower,

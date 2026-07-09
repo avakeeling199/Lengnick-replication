@@ -78,7 +78,8 @@ class Household(mesa.Agent):
             if sum(weights) == 0:
                 new_firm = self.random.choice(no_type_as)
             else:
-                new_firm = self.random.choices(no_type_as, weights=weights, k=1)[0]
+                #new_firm = self.random.choices(no_type_as, weights=weights, k=1)[0]
+                new_firm = self.random.choices(no_type_as, k=1)[0]
 
             if new_firm.p_f < (1 - xi) * typeA.p_f:
                 self.type_a_connections.remove(typeA)
@@ -186,6 +187,8 @@ class Firm(mesa.Agent):
                 h.m_h += new_wage
                 # store income
                 h.income = new_wage
+                # change wage permanently 
+                self.w_f = new_wage
 
     def add_to_buffer(self, chi):
         """add left over liquidity to buffer """
@@ -250,6 +253,30 @@ class Firm(mesa.Agent):
                 self.workers.remove(h)
                 h.type_b_connection = None           
         self.to_fire = []
+
+    def set_employment_and_fire(self, phi_emp_upper, phi_emp_lower):
+        """
+        merge set employment and fire workers so that they run in the correct order. cancels
+        firing if things have changed for the firm and they are now under the lower inv limit
+        """
+        i_f_upperbar = phi_emp_upper * self.demand
+        i_f_lowerbar = phi_emp_lower * self.demand
+        # only if inventory under i_f_lowbar and all positions are currently full
+        if self.i_f < i_f_lowerbar:
+            self.open_position = (self.to_fire == [])
+            self.to_fire = []
+        if self.to_fire:
+            for h in self.to_fire:
+                if h in self.workers:
+                    self.workers.remove(h)
+                    h.type_b_connection = None
+            self.to_fire = []
+
+        if self.i_f > i_f_upperbar and len(self.workers) > 0:
+            to_fire = self.random.choice(self.workers)
+            self.to_fire.append(to_fire)
+            self.open_position = False
+
 
     def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
         # only consider if inventory in the right amount
