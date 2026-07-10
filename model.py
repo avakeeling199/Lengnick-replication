@@ -15,7 +15,7 @@ def distribute_all_profits(model):
     total_liquidity = sum(h.m_h for h in households)
 
     if total_liquidity <= 0:
-        share = profits / len(households)
+        share = profits // len(households)
         for h in households:
             h.m_h += share
     else:
