@@ -2,8 +2,8 @@ from agents import Household, Firm
 from model import LegnickModel
 import matplotlib.pyplot as plt
 
-model = LegnickModel()
-for i in range(10000):
+model = LegnickModel(seed=42)
+for i in range(31500):
     model.step()
 
 data = model.datacollector.get_model_vars_dataframe()
