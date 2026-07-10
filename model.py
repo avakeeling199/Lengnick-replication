@@ -60,7 +60,10 @@ class LegnickModel(mesa.Model):
             "PriceStd": lambda m: statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)]),
             "WageStd": lambda m: statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)]),
             "InvStd": lambda m: statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)]),
-            "NumOpenPositions": lambda m: sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position)
+            "NumOpenPositions": lambda m: sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position),
+            "HHLiquidity": lambda m: sum(h.m_h for h in m.agents.select(agent_type=Household)),
+            "FirmLiquidity": lambda m: sum(f.m_f + f.buffer for f in m.agents.select(agent_type=Firm)),
+            "UnsatisfiedDemandPct": lambda m: m.last_unsat_pct
 
 },
         )
@@ -71,6 +74,9 @@ class LegnickModel(mesa.Model):
 
         self.Households = self.agents.select(agent_type = Household)
         self.firms = list(self.agents.select(agent_type = Firm))
+
+        self.last_unsat_pct = 0.0
+        self.firm_snapshots = []
 
         # initialise trading connectons (type a)
 
@@ -89,7 +95,7 @@ class LegnickModel(mesa.Model):
         self.random.shuffle(hh_order)
 
         if self.counter % 21 == 1:
-            print(f"BEGINNING OF MONTH, counter={self.counter}")
+            #print(f"BEGINNING OF MONTH, counter={self.counter}")
 
             # beginning of month
             # firms:
@@ -133,7 +139,7 @@ class LegnickModel(mesa.Model):
 
 
         if self.counter % 21 == 0:
-            print(f"END OF MONTH, counter={self.counter}")
+            #print(f"END OF MONTH, counter={self.counter}")
             # end of month:
             # firms:
             # use their m_f to pay wages, build buffer and pay profits
@@ -141,6 +147,17 @@ class LegnickModel(mesa.Model):
             self.agents.select(agent_type=Firm).do("pay_wages")
             self.agents.select(agent_type=Firm).do("add_to_buffer", chi=self.chi)
             #self.agents.select(agent_type=Firm).do("distribute_profits")
+            total_unsat = sum(h.month_unsatisfied for h in self.Households)
+            total_planned = sum(h.c_r_h for h in self.Households)
+            self.last_unsat_pct = (total_unsat / total_planned * 100) if total_planned > 0 else 0.0
+
+            month_num = self.counter // 21
+            for f in self.firms:
+                self.firm_snapshots.append({
+                    'month': month_num, 'firm_id': f.unique_id,
+                    'num_workers': len(f.workers), 'price': f.p_f,
+                    'wage': f.w_f, 'inventory': f.i_f,
+                })
             distribute_all_profits(self)
 
 

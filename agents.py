@@ -17,6 +17,7 @@ class Household(mesa.Agent):
         self.income = 0 #income from last month
         self.demand_const = False # was this h demand const?
         self.demand_const_shops = {}
+        self.month_unsatisfied = 0 # true unmet demand this month, beyond the 5% tolerance
 
     def monthly_consumption(self, alpha):
         """
@@ -29,7 +30,8 @@ class Household(mesa.Agent):
             prices += a.p_f
         p_i_h = prices / len(self.type_a_connections)
         self.c_r_h = min((self.m_h / p_i_h)**alpha, self.m_h / p_i_h)
-    
+        self.month_unsatisfied = 0  # reset for the new month
+
     def buy_goods(self, n):
         """
         each household buys goods from a random type a connection
@@ -40,6 +42,7 @@ class Household(mesa.Agent):
         demand = self.c_r_h // 21
         og_demand = demand
         shops = self.random.sample(self.type_a_connections, len(self.type_a_connections))
+        satisfied = False
         for shop in shops[:n]:
             # track demand for each firm
             affordable = self.m_h // shop.p_f
@@ -51,8 +54,8 @@ class Household(mesa.Agent):
                 self.demand_const = True
                 self.demand_const_shops[shop] = self.demand_const_shops.get(shop, 0) + (demand - shop.i_f)
 
-            cost = shop.p_f * transaction 
-            self.m_h -= cost 
+            cost = shop.p_f * transaction
+            self.m_h -= cost
             self.m_h = max(self.m_h, 0.0)
             shop.m_f += cost
             shop.i_f -= transaction
@@ -60,7 +63,12 @@ class Household(mesa.Agent):
             demand -= transaction
 
             if demand <= 0.05 * og_demand:
-                break  
+                satisfied = True
+                break
+
+        if not satisfied:
+            # true unmet demand for the day, beyond the 5% tolerance
+            self.month_unsatisfied += (demand - 0.05 * og_demand)
 
     def adjust_reservation_wage(self):
         """ adjust reservation wage according to last months income"""

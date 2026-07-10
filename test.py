@@ -1,6 +1,7 @@
 from agents import Household, Firm
 from model import LegnickModel
 import matplotlib.pyplot as plt
+import pandas as pd
 
 model = LegnickModel(seed=42)
 for i in range(31500):
@@ -21,3 +22,4 @@ axes[3].set_title('Total Inventory')
 
 plt.tight_layout()
 plt.savefig('diagnostics/diagnostic_run_20k.png', dpi=150)
+pd.DataFrame(model.firm_snapshots).to_csv('firm_snapshots.csv')
