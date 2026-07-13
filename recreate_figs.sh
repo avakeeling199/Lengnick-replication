@@ -6,6 +6,11 @@
 #SBATCH --mem=2G
 #SBATCH --output=logs/seed_%a.out
 
+module load Miniforge3/24.1.2-0
+eval "$(conda shell.bash hook)"
+conda activate legnick
+pip install -r requirements.txt
+
 MASTER_SEED=20260710
 N_SEEDS=30
 

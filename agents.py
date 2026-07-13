@@ -272,7 +272,7 @@ class Firm(mesa.Agent):
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
         # only if inventory under i_f_lowbar and all positions are currently full
-        if self.i_f < i_f_lowerbar:
+        if len(self.workers) == 0 or self.i_f < i_f_lowerbar:
             self.open_position = (self.to_fire == [])
             self.to_fire = []
         if self.to_fire:
