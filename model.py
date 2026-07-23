@@ -156,7 +156,7 @@ class LegnickModel(mesa.Model):
                 self.firm_snapshots.append({
                     'month': month_num, 'firm_id': f.unique_id,
                     'num_workers': len(f.workers), 'price': f.p_f,
-                    'wage': f.w_f, 'inventory': f.i_f,
+                    'wage': f.w_f, 'inventory': f.i_f, 'demand': f.demand,
                 })
             distribute_all_profits(self)
 
