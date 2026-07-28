@@ -261,7 +261,7 @@ def test_wage_rises_when_a_position_stays_unfilled(model, monkeypatch):
 def test_wage_falls_after_gamma_months_fully_staffed(model, monkeypatch):
     worker = object()
     f = Firm(model)
-    f.open_position, f.workers, f.months_full, f.w_f = True, [worker], 25, 3.0  # > gamma=24
+    f.open_position, f.workers, f.months_full, f.w_f = False, [worker], 25, 3.0  # > gamma=24
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.1)
     f.set_wages(gamma=24, delta=0.019)
@@ -273,7 +273,7 @@ def test_wage_falls_after_gamma_months_fully_staffed(model, monkeypatch):
 def test_wage_unchanged_while_fully_staffed_but_under_gamma(model):
     worker = object()
     f = Firm(model)
-    f.open_position, f.workers, f.months_full, f.w_f = True, [worker], 5, 3.0  # < gamma=24
+    f.open_position, f.workers, f.months_full, f.w_f = False, [worker], 5, 3.0  # < gamma=24
 
     f.set_wages(gamma=24, delta=0.019)
 

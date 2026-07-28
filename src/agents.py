@@ -130,7 +130,7 @@ class Household(mesa.Agent):
                     no_type_b = list(all_firms - {self.type_b_connection})
                     f = self.random.choice(no_type_b)
                     if f.open_position == True:
-                        if f.w_f >= self.w_h or f.w_f >= self.type_b_connection.w_f:
+                        if f.w_f >= self.type_b_connection.w_f:
                             self.type_b_connection.workers.remove(self)
                             self.type_b_connection = f
                             f.workers.append(self)
