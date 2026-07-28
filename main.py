@@ -1,23 +1,11 @@
-#!/usr/bin/env python3
-"""CLI wrapper to run one full LegnickModel simulation and save outputs.
-
-Usage:
-    python run_baseline.py --seed 42 --months 7000 \
-        --out diagnostics/run_seed42.csv \
-        --firm-snapshots diagnostics/firm_snapshots_seed42.csv
-
-For a quick local sanity check before committing to the full run:
-    python run_baseline.py --seed 42 --months 50 \
-        --out diagnostics/check_seed42.csv \
-        --firm-snapshots diagnostics/check_firm_snapshots_seed42.csv
-"""
 import argparse
 import os
 import time
 
 import pandas as pd
 
-from model import LegnickModel
+from src.model import LegnickModel
+from src.config import PARAMS
 
 
 def main():
@@ -31,6 +19,8 @@ def main():
                         help='path to write the per-firm monthly snapshot CSV')
     parser.add_argument('--n-households', type=int, default=1000)
     parser.add_argument('--n-firms', type=int, default=100)
+    parser.add_argument('--pricing-mode', choices=['rule', 'llm'], default='rule', 
+                        help='whether firms use rule-based or LLM-based pricing')
     args = parser.parse_args()
 
     out_dir = os.path.dirname(args.out)
@@ -42,7 +32,13 @@ def main():
 
     steps = args.months * 21
 
-    model = LegnickModel(seed=args.seed, n_households=args.n_households, n_firms=args.n_firms)
+    model_params = dict(PARAMS)
+    model_params['n_households'] = args.n_households
+    model_params['n_firms'] = args.n_firms
+    model_params['seed'] = args.seed
+    model_params['pricing_mode'] = args.pricing_mode
+
+    model = LegnickModel(**model_params)
 
     t0 = time.time()
     for i in range(steps):

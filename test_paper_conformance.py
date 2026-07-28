@@ -16,8 +16,8 @@ import inspect
 import mesa
 import pytest
 
-from agents import Household, Firm
-from model import distribute_all_profits, LegnickModel
+from src.agents import Household, Firm
+from src.model import distribute_all_profits, LegnickModel
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 import numpy as np
 import mesa
-from agents import Household, Firm
+from src.agents import Household, Firm
 import statistics
 
 def distribute_all_profits(model):
@@ -25,9 +25,8 @@ def distribute_all_profits(model):
 class LegnickModel(mesa.Model):
     """the Legnick model"""
     
-    def __init__(self, n_households = 1000, n_firms = 100, seed=333, alpha = 0.9, n = 7, ld = 3, chi = 0.1, gamma = 24, delta = 0.019,
-                    phi_emp_upper = 1, phi_emp_lower = 0.25, phi_price_lower = 1.025, phi_price_upper = 1.15, vartheta = 0.02, theta = 0.75,
-                    psi_price = 0.25, xi = 0.01, psi_quant = 0.25, beta = 5, pie = 0.1):
+    def __init__(self, n_households, n_firms, seed, alpha, n, ld, chi, gamma, delta, phi_emp_upper, phi_emp_lower, phi_price_lower, 
+                phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -49,6 +48,7 @@ class LegnickModel(mesa.Model):
         self.xi = xi
         self.psi_quant = psi_quant
         self.pie = pie
+        self.pricing_mode = pricing_mode
 
         # data collection
         self.datacollector = mesa.DataCollector(

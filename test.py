@@ -1,5 +1,5 @@
-from agents import Household, Firm
-from model import LegnickModel
+from src.agents import Household, Firm
+from src.model import LegnickModel
 import matplotlib.pyplot as plt
 import pandas as pd
 
