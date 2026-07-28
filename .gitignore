@@ -28,3 +28,8 @@ outputs/
 
 # logs
 logs/
+
+# outputs
+outputs/
+
+pytest.ini
