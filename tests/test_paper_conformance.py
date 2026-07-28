@@ -110,7 +110,7 @@ def test_unemployed_reservation_wage_falls_10_percent(model):
 def test_unemployed_accepts_open_position_meeting_reservation_wage(model, monkeypatch):
     h = Household(model)
     f = Firm(model)
-    h.w_h, f.w_f, f.n_positions = 5.0, 5.0, 1  # open position, wage >= w_h
+    h.w_h, f.w_f, f.open_position = 5.0, 5.0, True  # open position, wage >= w_h
 
     monkeypatch.setattr(model.random, "sample", lambda pop, k: list(pop)[:k])
     h.job_search(beta=1, pie=0.1)
@@ -122,7 +122,7 @@ def test_unemployed_accepts_open_position_meeting_reservation_wage(model, monkey
 def test_unemployed_rejects_wage_below_reservation_wage(model, monkeypatch):
     h = Household(model)
     f = Firm(model)
-    h.w_h, f.w_f, f.n_positions = 5.0, 4.0, 1  # wage too small
+    h.w_h, f.w_f, f.open_position = 5.0, 4.0, True  # wage too small
 
     monkeypatch.setattr(model.random, "sample", lambda pop, k: list(pop)[:k])
     h.job_search(beta=1, pie=0.1)
@@ -133,7 +133,7 @@ def test_unemployed_rejects_wage_below_reservation_wage(model, monkeypatch):
 def test_unemployed_skips_firm_with_no_vacancy(model, monkeypatch):
     h = Household(model)
     f = Firm(model)
-    h.w_h, f.w_f, f.n_positions = 5.0, 10.0, 0  # great wage, no vacancy
+    h.w_h, f.w_f, f.open_position = 5.0, 10.0, False  # great wage, no vacancy
 
     monkeypatch.setattr(model.random, "sample", lambda pop, k: list(pop)[:k])
     h.job_search(beta=1, pie=0.1)
@@ -152,7 +152,7 @@ def test_unemployed_skips_firm_with_no_vacancy(model, monkeypatch):
 def test_satisfied_worker_switches_only_if_new_wage_beats_current(model, monkeypatch):
     h = Household(model)
     f_current, f_better = Firm(model), Firm(model)
-    f_current.w_f, f_better.w_f, f_better.n_positions = 6.0, 8.0, 1
+    f_current.w_f, f_better.w_f, f_better.open_position = 6.0, 8.0, True
     h.type_b_connection = f_current
     f_current.workers.append(h)
     h.w_h = 5.0  # satisfied: f_current.w_f (6) >= w_h (5)
@@ -167,7 +167,7 @@ def test_satisfied_worker_switches_only_if_new_wage_beats_current(model, monkeyp
 def test_satisfied_worker_does_not_switch_to_a_worse_wage(model, monkeypatch):
     h = Household(model)
     f_current, f_worse = Firm(model), Firm(model)
-    f_current.w_f, f_worse.w_f, f_worse.n_positions = 6.0, 5.0, 1
+    f_current.w_f, f_worse.w_f, f_worse.open_position = 6.0, 5.0, True
     h.type_b_connection = f_current
     f_current.workers.append(h)
     h.w_h = 5.0  # satisfied
@@ -191,7 +191,7 @@ def test_satisfied_worker_does_not_switch_to_a_worse_wage(model, monkeypatch):
 def test_dissatisfied_worker_switches_to_firm_meeting_reservation_wage(model, monkeypatch):
     h = Household(model)
     f_low, f_high = Firm(model), Firm(model)
-    f_low.w_f, f_high.w_f, f_high.n_positions = 3.0, 8.0, 1
+    f_low.w_f, f_high.w_f, f_high.open_position = 3.0, 8.0, True
     h.type_b_connection = f_low
     f_low.workers.append(h)
     h.w_h = 6.0  # f_low.w_f (3) < w_h (6) -> unsatisfied
@@ -211,7 +211,7 @@ def test_dissatisfied_worker_search_is_not_gated_by_a_probability(model, monkeyp
     the switch still happens, proving no probability check is applied."""
     h = Household(model)
     f_low, f_high = Firm(model), Firm(model)
-    f_low.w_f, f_high.w_f, f_high.n_positions = 3.0, 8.0, 1
+    f_low.w_f, f_high.w_f, f_high.open_position = 3.0, 8.0, True
     h.type_b_connection = f_low
     f_low.workers.append(h)
     h.w_h = 6.0
@@ -226,7 +226,7 @@ def test_dissatisfied_worker_search_is_not_gated_by_a_probability(model, monkeyp
 def test_dissatisfied_worker_stays_if_alternative_firm_has_no_vacancy(model, monkeypatch):
     h = Household(model)
     f_low, f_full = Firm(model), Firm(model)
-    f_low.w_f, f_full.w_f, f_full.n_positions = 3.0, 8.0, 0
+    f_low.w_f, f_full.w_f, f_full.open_position = 3.0, 8.0, False
     h.type_b_connection = f_low
     f_low.workers.append(h)
     h.w_h = 6.0
@@ -249,7 +249,7 @@ def test_dissatisfied_worker_stays_if_alternative_firm_has_no_vacancy(model, mon
 
 def test_wage_rises_when_a_position_stays_unfilled(model, monkeypatch):
     f = Firm(model)
-    f.n_positions, f.workers, f.w_f, f.months_full = 5, [], 3.0, 5  # vacancy exists
+    f.open_position, f.workers, f.w_f, f.months_full = True, [], 3.0, 5  # vacancy exists
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.1)
     f.set_wages(gamma=24, delta=0.019)
@@ -261,7 +261,7 @@ def test_wage_rises_when_a_position_stays_unfilled(model, monkeypatch):
 def test_wage_falls_after_gamma_months_fully_staffed(model, monkeypatch):
     worker = object()
     f = Firm(model)
-    f.n_positions, f.workers, f.months_full, f.w_f = 1, [worker], 25, 3.0  # > gamma=24
+    f.open_position, f.workers, f.months_full, f.w_f = True, [worker], 25, 3.0  # > gamma=24
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.1)
     f.set_wages(gamma=24, delta=0.019)
@@ -273,7 +273,7 @@ def test_wage_falls_after_gamma_months_fully_staffed(model, monkeypatch):
 def test_wage_unchanged_while_fully_staffed_but_under_gamma(model):
     worker = object()
     f = Firm(model)
-    f.n_positions, f.workers, f.months_full, f.w_f = 1, [worker], 5, 3.0  # < gamma=24
+    f.open_position, f.workers, f.months_full, f.w_f = True, [worker], 5, 3.0  # < gamma=24
 
     f.set_wages(gamma=24, delta=0.019)
 
@@ -308,14 +308,16 @@ def test_price_falls_when_inventory_above_upperbar(model, monkeypatch):
 
 def test_price_rises_when_inventory_below_lowerbar(model, monkeypatch):
     f = Firm(model)
-    f.demand, f.i_f, f.w_f, f.p_f = 100, 10, 6.0, 2.2  # lowerbar=25
+    f.demand, f.w_f = 100, 6.0 
+    mc_f = f.w_f / (21 * 3) # ld = 3, matches call below
+    f.i_f, f.p_f = 10, mc_f * 1.05 # lowerbar = 25; p_f inside the rise-eligible band
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.01)
     monkeypatch.setattr(model.random, "random", lambda: 0.0)
     f.set_prices(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
                  theta=0.75, phi_emp_upper=1, vartheta=0.02, phi_emp_lower=0.25)
 
-    assert f.p_f == pytest.approx(2.2 * 1.01)
+    assert f.p_f == pytest.approx(mc_f * 1.05 * 1.01)
 
 
 def test_price_unchanged_when_inventory_within_band(model, monkeypatch):
@@ -356,30 +358,33 @@ def test_price_change_is_gated_by_theta_probability(model, monkeypatch):
 
 def test_hires_immediately_when_inventory_below_lowerbar(model):
     f = Firm(model)
-    f.demand, f.i_f, f.n_positions = 100, 5, 3  # lowerbar = 25
+    f.demand, f.i_f = 100, 5  # lowerbar = 25
+    f.to_fire = []
+    f.open_position = True
 
     f.set_employment(phi_emp_upper=1, phi_emp_lower=0.25)
 
-    assert f.n_positions == 4  # one new position, immediately
+    assert f.open_position is True  # one new position, immediately
 
 
 def test_marks_one_worker_to_fire_when_inventory_above_upperbar(model):
     worker = object()
     f = Firm(model)
-    f.demand, f.i_f, f.n_positions, f.workers = 100, 150, 3, [worker]  # upperbar = 100
+    f.demand, f.i_f, f.workers = 100, 150, [worker]  # upperbar = 100
+    f.open_position = True
 
     f.set_employment(phi_emp_upper=1, phi_emp_lower=0.25)
 
     assert f.to_fire == [worker]     # queued, not yet removed (one-month lag)
     assert worker in f.workers       # still employed this month
-    assert f.n_positions == 2
+    assert f.open_position is False
 
 
 def test_firing_takes_effect_only_after_one_month_lag(model):
     h = Household(model)
     f = Firm(model)
     h.type_b_connection = f
-    f.demand, f.i_f, f.n_positions, f.workers = 100, 150, 3, [h]
+    f.demand, f.i_f, f.open_position, f.workers = 100, 150, True, [h]
 
     f.set_employment(phi_emp_upper=1, phi_emp_lower=0.25)
     assert h in f.workers  # not fired yet this month
@@ -392,11 +397,11 @@ def test_firing_takes_effect_only_after_one_month_lag(model):
 def test_no_hire_or_fire_when_inventory_within_band(model):
     worker = object()
     f = Firm(model)
-    f.demand, f.i_f, f.n_positions, f.workers = 100, 50, 3, [worker]
+    f.demand, f.i_f, f.open_position, f.workers = 100, 50, True, [worker]
 
     f.set_employment(phi_emp_upper=1, phi_emp_lower=0.25)
 
-    assert f.n_positions == 3
+    assert f.open_position is True
     assert f.to_fire == []
 
 
