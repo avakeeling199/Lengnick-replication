@@ -6,6 +6,8 @@
 #SBATCH --mem=2G
 #SBATCH --output=logs/seed_%a.out
 
+mkdir -p logs
+
 module load Miniforge3/24.1.2-0
 eval "$(conda shell.bash hook)"
 conda activate legnick
@@ -19,6 +21,6 @@ import random
 print(random.Random(${MASTER_SEED}).sample(range(1, 10**7), k=${N_SEEDS})[${SLURM_ARRAY_TASK_ID}])
 ")
 
-python run_baseline.py --seed $SEED --months 7000 \
+python main.py --seed $SEED --months 7000 \
     --out diagnostics/run_seed${SEED}.csv \
     --firm-snapshots diagnostics/firm_snapshots_seed${SEED}.csv
