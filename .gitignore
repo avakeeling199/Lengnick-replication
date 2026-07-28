@@ -31,3 +31,5 @@ logs/
 
 # outputs
 outputs/
+
+pytest.ini
