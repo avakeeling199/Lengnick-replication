@@ -34,12 +34,9 @@ def model():
 #             phi_price_upper=1.15, phi_price_lower=1.025, vartheta=0.02,
 #             theta=0.75, ld(=lambda, production tech)=3, chi=0.1
 
+from src.config import PARAMS
+
 def test_default_calibration_matches_paper_table_1():
-    defaults = {
-        k: v.default
-        for k, v in inspect.signature(LegnickModel.__init__).parameters.items()
-        if v.default is not inspect._empty
-    }
     expected = dict(
         alpha=0.9, n=7, ld=3, chi=0.1, gamma=24, delta=0.019,
         phi_emp_upper=1, phi_emp_lower=0.25,
@@ -48,10 +45,9 @@ def test_default_calibration_matches_paper_table_1():
         psi_price=0.25, xi=0.01, psi_quant=0.25, beta=5, pie=0.1,
     )
     for key, value in expected.items():
-        assert defaults[key] == pytest.approx(value), (
-            f"{key}: default={defaults[key]!r}, paper Table 1 value={value!r}"
+        assert PARAMS[key] == pytest.approx(value), (
+            f"{key}: config value={PARAMS[key]!r}, paper Table 1 value={value!r}"
         )
-
 
 # ---------------------------------------------------------------------------
 # Reservation wage adjustment - Section 2.4, penultimate paragraph:
@@ -65,7 +61,7 @@ def test_default_calibration_matches_paper_table_1():
 def test_income_above_reservation_wage_raises_it_to_income(model):
     h = Household(model)
     h.type_b_connection = Firm(model)  # employed
-    h.w_h, h.income = 10.0, 15.0
+    h.w_h, h.income = 10.0, 15
 
     h.adjust_reservation_wage()
 
@@ -75,7 +71,7 @@ def test_income_above_reservation_wage_raises_it_to_income(model):
 def test_income_below_reservation_wage_leaves_it_unchanged(model):
     h = Household(model)
     h.type_b_connection = Firm(model)  # employed
-    h.w_h, h.income = 10.0, 5.0
+    h.w_h, h.income = 10.0, 5
 
     h.adjust_reservation_wage()
 
