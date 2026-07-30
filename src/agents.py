@@ -333,15 +333,27 @@ class Firm(mesa.Agent):
         self.p_f = new_price
         self.demand = 0
 
-    def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
-        if self.model.pricing_mode == "llm":
-            self.set_prices_llm(ld)
-        else:
-            self.set_prices_rule(phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower)
 
-        self.i_f_history.append(self.i_f)
-        self.p_f_history.append(self.p_f)
+from concurrent.futures import ThreadPoolExecutor
 
+def price_firms_concurrently(firms, ld, max_workers=10):
+    """
+    Dispatch LLM pricing calls for all firms concurrently via threads.
+    """
+    def price_one(firm):
+        mc_f = firm.w_f / (21 * ld)
+        raw_text, elapsed = call_ollama_price(firm.i_f, firm.p_f, mc_f, firm.demand)
+        new_price, reasoning, ok = parse_price_response(raw_text, current_price = firm.p_f)
+        return firm, new_price, reasoning, ok, elapsed
 
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(price_one, firms))
+
+    for firm, new_price, reasoning, ok, elapsed in results:
+        firm.price_log.append((firm.model.counter, new_price, reasoning, ok, elapsed))
+        firm.p_f = new_price
+        firm.demand = 0
+        firm.i_f_history.append(firm.i_f)
+        firm.p_f_history.append(firm.p_f)
 
 

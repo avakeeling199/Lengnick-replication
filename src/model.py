@@ -2,6 +2,7 @@ import numpy as np
 import mesa
 from src.agents import Household, Firm
 import statistics
+from src.agents import price_firms_concurrently
 
 def distribute_all_profits(model):
     profits = sum(f.m_f for f in model.firms)
@@ -106,13 +107,16 @@ class LegnickModel(mesa.Model):
                                                     phi_emp_lower=self.phi_emp_lower)
 
             # set prices
-            self.agents.select(agent_type=Firm).do("set_prices", phi_price_upper=self.phi_price_upper,
-                                                    phi_price_lower=self.phi_price_lower,
-                                                    ld=self.ld,
-                                                    theta=self.theta,
-                                                    phi_emp_upper=self.phi_emp_upper,
-                                                    vartheta=self.vartheta,
-                                                    phi_emp_lower=self.phi_emp_lower)
+            if self.pricing_mode == "llm":
+                price_firms_concurrently(self.firms, self.ld)
+            else:
+                self.agents.select(agent_type=Firm).do("set_prices_rule", phi_price_upper=self.phi_price_upper, 
+                                                        phi_price_lower=self.phi_price_lower, 
+                                                        ld=self.ld,
+                                                        theta=self.theta,
+                                                        phi_emp_upper=self.phi_emp_upper,
+                                                        vertheta=self.vartheta,
+                                                        phi_emp_lower=self.phi_emp_lower)
             
             # households:
             # shuffle once, reuse the same order for every procedure this month start 
