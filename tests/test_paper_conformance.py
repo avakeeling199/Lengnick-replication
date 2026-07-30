@@ -14,7 +14,7 @@ Run with:
 """
 import inspect
 import mesa
-import pytest
+import pytest  # type: ignore[import]
 
 from src.agents import Household, Firm
 from src.model import distribute_all_profits, LegnickModel
