@@ -153,11 +153,17 @@ class LegnickModel(mesa.Model):
 
             month_num = self.counter // 21
             for f in self.firms:
-                self.firm_snapshots.append({
+                snapshot = {
                     'month': month_num, 'firm_id': f.unique_id,
                     'num_workers': len(f.workers), 'price': f.p_f,
                     'wage': f.w_f, 'inventory': f.i_f, 'demand': f.demand,
-                })
+                }
+                if self.pricing_mode == 'llm' and f.price_log:
+                    _, logged_price, reasoning, ok, elapsed = f.price_log[-1]
+                    snapshot['llm_reasoning'] = reasoning
+                    snapshot['llm_ok'] = ok
+                    snapshot['llm_elapsed'] = elapsed
+                self.firm_snapshots.append(snapshot)
             distribute_all_profits(self)
 
 

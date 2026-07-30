@@ -1,6 +1,10 @@
 import numpy as np
 import mesa
 import math
+from collections import deque
+
+from src.llm.client import call_ollama_price
+from src.llm.parsing import parse_price_response
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -165,6 +169,9 @@ class Firm(mesa.Agent):
         self.months_full = 0
         self.demand = 1
         self.to_fire = [] # workers that are being fired next month
+        self.i_f_history = deque(maxlen=3)
+        self.p_f_history = deque(maxlen=3) # added histories for the llm prompt
+        self.price_log = [] 
 
     def produce(self, ld):
         """produce goods"""
@@ -288,7 +295,7 @@ class Firm(mesa.Agent):
             self.open_position = False
 
 
-    def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
+    def set_prices_rule(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
         # only consider if inventory in the right amount
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
@@ -315,7 +322,25 @@ class Firm(mesa.Agent):
                     #self.p_f = math.ceil(self.p_f)
 
         self.demand = 0
-        
+
+    def set_prices_llm(self, ld):
+        mc_f = self.w_f / (21 * ld)
+        raw_text, elapsed = call_ollama_price(self.i_f, self.p_f, mc_f, self.demand)
+        print(f"[LLM pricing] step {self.model.counter}, firm {self.unique_id}, elapsed={elapsed:.2f}s")
+        new_price, reasoning, ok = parse_price_response(raw_text, current_price=self.p_f)
+
+        self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed))
+        self.p_f = new_price
+        self.demand = 0
+
+    def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
+        if self.model.pricing_mode == "llm":
+            self.set_prices_llm(ld)
+        else:
+            self.set_prices_rule(phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower)
+
+        self.i_f_history.append(self.i_f)
+        self.p_f_history.append(self.p_f)
 
 
 
