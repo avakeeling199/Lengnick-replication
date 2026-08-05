@@ -336,22 +336,24 @@ class Firm(mesa.Agent):
 
 from concurrent.futures import ThreadPoolExecutor
 
-def price_firms_concurrently(firms, ld, max_workers=12):
+def price_firms_concurrently(firms, ld, max_workers=16):
     """
     Dispatch LLM pricing calls for all firms concurrently via threads.
     """
     def price_one(firm):
         mc_f = firm.w_f / (21 * ld)
-        raw_text, elapsed = call_ollama_price(firm.i_f, firm.p_f, mc_f, firm.demand)
+        input_i_f = firm.i_f
+        input_demand = firm.demand
+        raw_text, elapsed = call_ollama_price(input_i_f, firm.p_f, mc_f, input_demand)
         new_price, reasoning, ok = parse_price_response(raw_text, current_price = firm.p_f)
         print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, ok={ok}")
-        return firm, new_price, reasoning, ok, elapsed
+        return firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(price_one, firms))
 
-    for firm, new_price, reasoning, ok, elapsed in results:
-        firm.price_log.append((firm.model.counter, new_price, reasoning, ok, elapsed))
+    for firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand in results:
+        firm.price_log.append((firm.model.counter, new_price, reasoning, ok, elapsed, input_i_f, input_demand))
         firm.p_f = new_price
         firm.demand = 0
         firm.i_f_history.append(firm.i_f)

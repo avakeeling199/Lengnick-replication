@@ -163,10 +163,12 @@ class LegnickModel(mesa.Model):
                     'wage': f.w_f, 'inventory': f.i_f, 'demand': f.demand,
                 }
                 if self.pricing_mode == 'llm' and f.price_log:
-                    _, logged_price, reasoning, ok, elapsed = f.price_log[-1]
+                    _, logged_price, reasoning, ok, elapsed, input_i_f, input_demand = f.price_log[-1]
                     snapshot['llm_reasoning'] = reasoning
                     snapshot['llm_ok'] = ok
                     snapshot['llm_elapsed'] = elapsed
+                    snapshot['llm_input_inventory'] = input_i_f
+                    snapshot['llm_input_demand'] = input_demand
                 self.firm_snapshots.append(snapshot)
             distribute_all_profits(self)
 
