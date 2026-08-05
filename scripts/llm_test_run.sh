@@ -4,7 +4,7 @@
 #SBATCH --gres gpu:1
 #SBATCH --time 00:30:00
 #SBATCH --qos gpu_bmrc_4hr
-#SBATCH --output test_parallel_%j.out
+#SBATCH --output logs/test_parallel_%j.out
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=ava.keeling@stx.ox.ac.uk
 
@@ -16,7 +16,7 @@ export PATH=/well/mills/users/tej036/opt/bin:$PATH
 export LD_LIBRARY_PATH=/well/mills/users/tej036/opt/lib/ollama:$LD_LIBRARY_PATH
 export OLLAMA_MODELS=/well/mills/users/tej036/ollama_models
 export OLLAMA_CONTEXT_LENGTH=4096
-export OLLAMA_NUM_PARALLEL=6
+export OLLAMA_NUM_PARALLEL=12
 
 ollama serve > ollama_test.log 2>&1 &
 sleep 10

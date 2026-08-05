@@ -47,6 +47,8 @@ def main():
             elapsed = time.time() - t0
             print(f"[seed {args.seed}] month {(i + 1) // 21}/{args.months} "
                 f"({elapsed:.0f}s elapsed)", flush=True)
+            model.datacollector.get_model_vars_dataframe().to_csv(args.out)
+            pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
 
     data = model.datacollector.get_model_vars_dataframe()
     data.to_csv(args.out)
