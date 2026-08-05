@@ -336,7 +336,7 @@ class Firm(mesa.Agent):
 
 from concurrent.futures import ThreadPoolExecutor
 
-def price_firms_concurrently(firms, ld, max_workers=16):
+def price_firms_concurrently(firms, ld, max_workers=12):
     """
     Dispatch LLM pricing calls for all firms concurrently via threads.
     """
