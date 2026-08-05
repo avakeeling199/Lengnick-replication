@@ -336,7 +336,7 @@ class Firm(mesa.Agent):
 
 from concurrent.futures import ThreadPoolExecutor
 
-def price_firms_concurrently(firms, ld, max_workers=10):
+def price_firms_concurrently(firms, ld, max_workers=4):
     """
     Dispatch LLM pricing calls for all firms concurrently via threads.
     """
@@ -344,6 +344,7 @@ def price_firms_concurrently(firms, ld, max_workers=10):
         mc_f = firm.w_f / (21 * ld)
         raw_text, elapsed = call_ollama_price(firm.i_f, firm.p_f, mc_f, firm.demand)
         new_price, reasoning, ok = parse_price_response(raw_text, current_price = firm.p_f)
+        print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, ok={ok}")
         return firm, new_price, reasoning, ok, elapsed
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:

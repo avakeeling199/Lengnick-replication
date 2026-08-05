@@ -27,9 +27,8 @@ outputs/
 .idea/
 
 # logs
-logs/
+l
 
-# outputs
-outputs/
+diagnostics/*.csv
 
-pytest.ini
+figs/
