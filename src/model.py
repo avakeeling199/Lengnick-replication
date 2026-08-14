@@ -23,6 +23,39 @@ def distribute_all_profits(model):
         for h in households:
             h.m_h += profits * h.m_h / total_liquidity
 
+def _employment(m):
+    return sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None)
+
+def _avg_price(m):
+    return sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms
+
+def _avg_wage(m):
+    return sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms
+
+def _total_inv(m):
+    return sum(f.i_f for f in m.agents.select(agent_type=Firm))
+
+def _price_std(m):
+    return statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)])
+
+def _wage_std(m):
+    return statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)])
+
+def _inv_std(m):
+    return statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)])
+
+def _num_open_positions(m):
+    return sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position)
+
+def _hh_liquidity(m):
+    return sum(h.m_h for h in m.agents.select(agent_type=Household))
+
+def _firm_liquidity(m):
+    return sum(f.m_f + f.buffer for f in m.agents.select(agent_type=Firm))
+
+def _unsatisfied_demand_pct(m):
+    return m.last_unsat_pct
+
 class LegnickModel(mesa.Model):
     """the Legnick model"""
     
@@ -53,21 +86,20 @@ class LegnickModel(mesa.Model):
 
         # data collection
         self.datacollector = mesa.DataCollector(
-            model_reporters={
-            "Employment": lambda m: sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None),
-            "AvgPrice": lambda m: sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
-            "AvgWage": lambda m: sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
-            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm)),
-            "PriceStd": lambda m: statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)]),
-            "WageStd": lambda m: statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)]),
-            "InvStd": lambda m: statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)]),
-            "NumOpenPositions": lambda m: sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position),
-            "HHLiquidity": lambda m: sum(h.m_h for h in m.agents.select(agent_type=Household)),
-            "FirmLiquidity": lambda m: sum(f.m_f + f.buffer for f in m.agents.select(agent_type=Firm)),
-            "UnsatisfiedDemandPct": lambda m: m.last_unsat_pct
-
-},
-        )
+        model_reporters={
+            "Employment": _employment,
+            "AvgPrice": _avg_price,
+            "AvgWage": _avg_wage,
+            "TotalInv": _total_inv,
+            "PriceStd": _price_std,
+            "WageStd": _wage_std,
+            "InvStd": _inv_std,
+            "NumOpenPositions": _num_open_positions,
+            "HHLiquidity": _hh_liquidity,
+            "FirmLiquidity": _firm_liquidity,
+            "UnsatisfiedDemandPct": _unsatisfied_demand_pct,
+    },
+)
 
         # create agents
         Household.create_agents(model=self, n=n_households)
@@ -115,7 +147,7 @@ class LegnickModel(mesa.Model):
                                                         ld=self.ld,
                                                         theta=self.theta,
                                                         phi_emp_upper=self.phi_emp_upper,
-                                                        vertheta=self.vartheta,
+                                                        vartheta=self.vartheta,
                                                         phi_emp_lower=self.phi_emp_lower)
             
             # households:
