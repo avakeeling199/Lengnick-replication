@@ -31,4 +31,4 @@ l
 
 diagnostics/*.csv
 
-figs/
+figs/diagnostics/*.pkl
