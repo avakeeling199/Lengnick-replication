@@ -14,7 +14,7 @@ export PATH=/well/mills/users/tej036/opt/bin:$PATH
 export LD_LIBRARY_PATH=/well/mills/users/tej036/opt/lib/ollama:$LD_LIBRARY_PATH
 export OLLAMA_MODELS=/well/mills/users/tej036/ollama_models
 export OLLAMA_CONTEXT_LENGTH=4096
-export OLLAMA_NUM_PARALLEL=2
+export OLLAMA_NUM_PARALLEL=12
 
 ollama serve > ollama_run.log 2>&1 &
 sleep 10
@@ -30,6 +30,6 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "=== Sanity check passed, starting full run ==="
-python main.py --seed 42 --months 7000 --pricing-mode llm \
+python main.py --seed 42 --months 1500 --pricing-mode llm \
     --out diagnostics/run_llm_seed42.csv \
     --firm-snapshots diagnostics/firm_snapshots_llm_seed42.csv
