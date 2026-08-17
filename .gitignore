@@ -32,3 +32,10 @@ l
 diagnostics/*.csv
 
 diagnostics/*.pkl
+*.log
+*.out
+test*.csv
+test*_snap.csv
+*.log
+*.out
+test*.csv
