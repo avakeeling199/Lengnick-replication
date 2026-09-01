@@ -19,12 +19,12 @@ export OLLAMA_NUM_PARALLEL=12
 ollama serve > ollama_run.log 2>&1 &
 sleep 10
 
-cp diagnostics/checkpoint_seed42.pkl diagnostics/checkpoint_seed42_month1300.pkl
-cp diagnostics/run_llm_seed42.csv diagnostics/run_llm_seed42_month1300.csv
-cp diagnostics/firm_snapshots_llm_seed42.csv diagnostics/firm_snapshots_llm_seed42_month1300.csv
+cp diagnostics/checkpoint_seed42.pkl diagnostics/checkpoint_seed42_month4500.pkl
+cp diagnostics/run_llm_seed42.csv diagnostics/run_llm_seed42_month4500.csv
+cp diagnostics/firm_snapshots_llm_seed42.csv diagnostics/firm_snapshots_llm_seed42_month4500.csv
 
 echo "=== sanity check: resume + 1 month ==="
-python main.py --seed 42 --months 1301 --resume-from diagnostics/checkpoint_seed42.pkl --pricing-mode llm \
+python main.py --seed 42 --months 4501 --resume-from diagnostics/checkpoint_seed42.pkl --pricing-mode llm \
     --out diagnostics/sanity_resume_check.csv \
     --firm-snapshots diagnostics/sanity_resume_snap.csv
 
@@ -34,6 +34,6 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "=== sanity check passed, resuming full run ==="
-python main.py --seed 42 --months 2700 --resume-from diagnostics/checkpoint_seed42.pkl --pricing-mode llm \
+python main.py --seed 42 --months 7000 --resume-from diagnostics/checkpoint_seed42.pkl --pricing-mode llm \
     --out diagnostics/run_llm_seed42.csv \
     --firm-snapshots diagnostics/firm_snapshots_llm_seed42.csv
