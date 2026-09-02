@@ -20,7 +20,7 @@ ollama serve > ollama_run.log 2>&1 &
 sleep 10
 
 echo "=== Running 1-month sanity check before committing to full run ==="
-python main.py --seed 42 --months 1 --pricing-mode llm \
+python main.py --seed 9001 --months 1 --pricing-mode llm \
     --out diagnostics/sanity_check.csv \
     --firm-snapshots diagnostics/sanity_check_snap.csv
 
@@ -31,5 +31,5 @@ fi
 
 echo "=== Sanity check passed, starting full run ==="
 python main.py --seed 9001 --months 7000 --pricing-mode llm \
-    --out diagnostics/run_llm_seed42.csv \
-    --firm-snapshots diagnostics/firm_snapshots_llm_seed42.csv
+    --out diagnostics/run_llm_seed9001.csv \
+    --firm-snapshots diagnostics/firm_snapshots_llm_seed9001.csv
