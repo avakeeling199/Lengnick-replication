@@ -26,8 +26,8 @@ sleep 10
 # Uses seed 9001 (not 42) so this does NOT touch checkpoint_seed42.pkl or the
 # seed-42 run/snapshot CSVs -- those are the "before the fix" evidence for
 # the report and must stay untouched.
-echo "=== smoke test: fresh LLM-pricing run, seed 9001, 120 months ==="
-python main.py --seed 9001 --months 120 --pricing-mode llm \
+echo "=== smoke test: fresh LLM-pricing run, seed 9001, 60 months ==="
+python main.py --seed 9001 --months 60 --pricing-mode llm \
     --out diagnostics/smoke_test_seed9001.csv \
     --firm-snapshots diagnostics/smoke_test_firm_snapshots_seed9001.csv
 

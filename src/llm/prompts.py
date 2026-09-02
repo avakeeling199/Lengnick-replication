@@ -1,16 +1,17 @@
-def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_history=None):
+def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_history=None, inventory_history=None):
     history_section = ""
-    if price_history or demand_history:
+    if price_history or demand_history or inventory_history:
         price_history = price_history or []
         demand_history = demand_history or []
+        inventory_history = inventory_history or []
         history_section = (
             "\nRecent history (oldest to most recent, before this month):\n"
             f"- Prices: {list(price_history)}\n"
             f"- Realised demand: {list(demand_history)}\n"
-            "Check whether your recent price changes actually grew demand or "
-            "shrank it -- if demand has been falling as you raised price, that's "
-            "a sign the increase isn't sustainable and you may want to hold or "
-            "lower instead.\n"
+            f"- Inventory: {list(inventory_history)}\n"
+            "Use the trend in your price, demand, and inventory together to "
+            "judge whether your current price is too high, too low, or about "
+            "right.\n"
         )
 
     return (

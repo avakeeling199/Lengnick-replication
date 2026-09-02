@@ -332,9 +332,11 @@ class Firm(mesa.Agent):
     def set_prices_llm(self, ld):
         mc_f = self.w_f / (21 * ld)
         raw_text, elapsed = call_ollama_price(self.i_f, self.p_f, mc_f, self.demand,
-                                               self.p_f_history, self.demand_history)
-        print(f"[LLM pricing] step {self.model.counter}, firm {self.unique_id}, elapsed={elapsed:.2f}s")
+                                               self.p_f_history, self.demand_history, self.i_f_history)
         new_price, reasoning, ok = parse_price_response(raw_text, current_price=self.p_f)
+
+        print(f"[LLM pricing] step {self.model.counter}, firm {self.unique_id}, elapsed={elapsed:.2f}s, "
+              f"price {self.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
 
         self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed))
         self.demand_history.append(self.demand)
@@ -355,9 +357,10 @@ def price_firms_concurrently(firms, ld, max_workers=12):
         input_i_f = firm.i_f
         input_demand = firm.demand
         raw_text, elapsed = call_ollama_price(input_i_f, firm.p_f, mc_f, input_demand,
-                                               firm.p_f_history, firm.demand_history)
+                                               firm.p_f_history, firm.demand_history, firm.i_f_history)
         new_price, reasoning, ok = parse_price_response(raw_text, current_price = firm.p_f)
-        print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, ok={ok}")
+        print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, "
+              f"price {firm.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
         return firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
