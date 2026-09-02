@@ -30,6 +30,6 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "=== Sanity check passed, starting full run ==="
-python main.py --seed 42 --months 1500 --pricing-mode llm \
+python main.py --seed 9001 --months 7000 --pricing-mode llm \
     --out diagnostics/run_llm_seed42.csv \
     --firm-snapshots diagnostics/firm_snapshots_llm_seed42.csv
