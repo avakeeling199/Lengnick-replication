@@ -15,12 +15,13 @@ def call_ollama_price(i_f, p_f, mc_f, demand, price_history=None, demand_history
         "format": {
             "type": "object",
             "properties": {
+                "action": {"type": "string", "enum": ["hold", "raise", "lower"]},
                 "new_price": {"type": "number"},
                 "reasoning": {"type": "string"}
             },
-            "required": ["new_price", "reasoning"]
+            "required": ["action", "new_price", "reasoning"]
         },
-        "options": {"temperature": 0.7},
+        "options": {"temperature": 0.3},
     }
     start = time.time()
     response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=600)

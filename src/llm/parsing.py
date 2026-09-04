@@ -8,12 +8,16 @@ def parse_price_response(raw_text, current_price, max_change_frac=0.5):
     missing keys, wrong types, non-positive prices, or implausible jumps.
     Returns (new_price, reasoning, ok) so callers can log what happened
     """
-    try: 
+    try:
         parsed = json.loads(raw_text)
+        action = str(parsed.get("action", "")).lower()
         new_price = float(parsed["new_price"])
         reasoning = str(parsed.get("reasoning", ""))
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return current_price, f"PARSE_FAILURE: {raw_text!r}", False
+
+    if action == "hold":
+        return current_price, reasoning, True
 
     if new_price <= 0:
         return current_price, f"REJECTED (non-positive price): {new_price}", False
