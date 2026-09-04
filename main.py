@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+import pickle 
 
 import pandas as pd
 
@@ -21,6 +22,8 @@ def main():
     parser.add_argument('--n-firms', type=int, default=100)
     parser.add_argument('--pricing-mode', choices=['rule', 'llm'], default='rule', 
                         help='whether firms use rule-based or LLM-based pricing')
+    parser.add_argument('--resume-from', type=str, default=None,
+                        help='path to a checkpoint .pkl to resume from')
     args = parser.parse_args()
 
     out_dir = os.path.dirname(args.out)
@@ -31,25 +34,38 @@ def main():
         os.makedirs(snap_dir, exist_ok=True)
 
     steps = args.months * 21
-
-    model_params = dict(PARAMS)
-    model_params['n_households'] = args.n_households
-    model_params['n_firms'] = args.n_firms
-    model_params['seed'] = args.seed
-    model_params['pricing_mode'] = args.pricing_mode
-
-    model = LegnickModel(**model_params)
+    if args.resume_from:
+        with open(args.resume_from, 'rb') as f:
+            model = pickle.load(f)
+        print(f"Resumed from {args.resume_from} at counter={model.counter}")
+    else:
+        model_params = dict(PARAMS)
+        model_params['n_households'] = args.n_households
+        model_params['n_firms'] = args.n_firms
+        model_params['seed'] = args.seed
+        model_params['pricing_mode'] = args.pricing_mode
+        model = LegnickModel(**model_params)
 
     t0 = time.time()
-    for i in range(steps):
+    target_steps = args.months * 21
+    remaining_steps = target_steps - model.counter
+
+    for i in range(remaining_steps):
         model.step()
-        if (i + 1) % (21 * 100) == 0:
+        if (model.counter) % (21 * 100) == 0:
             elapsed = time.time() - t0
-            print(f"[seed {args.seed}] month {(i + 1) // 21}/{args.months} "
+            print(f"[seed {args.seed}] month {model.counter // 21}/{args.months} "
                 f"({elapsed:.0f}s elapsed)", flush=True)
+            model.datacollector.get_model_vars_dataframe().to_csv(args.out)
+            pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
+            with open(f"diagnostics/checkpoint_seed{args.seed}.pkl", 'wb') as f:
+                pickle.dump(model, f)
 
     data = model.datacollector.get_model_vars_dataframe()
     data.to_csv(args.out)
+
+    with open(f"diagnostics/checkpoint_seed{args.seed}.pkl", 'wb') as f:
+        pickle.dump(model, f)
 
     pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
 

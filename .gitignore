@@ -27,9 +27,15 @@ outputs/
 .idea/
 
 # logs
-logs/
+l
 
-# outputs
-outputs/
+diagnostics/*.csv
 
-pytest.ini
+diagnostics/*.pkl
+*.log
+*.out
+test*.csv
+test*_snap.csv
+*.log
+*.out
+test*.csv

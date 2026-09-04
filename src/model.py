@@ -2,6 +2,7 @@ import numpy as np
 import mesa
 from src.agents import Household, Firm
 import statistics
+from src.agents import price_firms_concurrently
 
 def distribute_all_profits(model):
     profits = sum(f.m_f for f in model.firms)
@@ -21,6 +22,39 @@ def distribute_all_profits(model):
     else:
         for h in households:
             h.m_h += profits * h.m_h / total_liquidity
+
+def _employment(m):
+    return sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None)
+
+def _avg_price(m):
+    return sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms
+
+def _avg_wage(m):
+    return sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms
+
+def _total_inv(m):
+    return sum(f.i_f for f in m.agents.select(agent_type=Firm))
+
+def _price_std(m):
+    return statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)])
+
+def _wage_std(m):
+    return statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)])
+
+def _inv_std(m):
+    return statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)])
+
+def _num_open_positions(m):
+    return sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position)
+
+def _hh_liquidity(m):
+    return sum(h.m_h for h in m.agents.select(agent_type=Household))
+
+def _firm_liquidity(m):
+    return sum(f.m_f + f.buffer for f in m.agents.select(agent_type=Firm))
+
+def _unsatisfied_demand_pct(m):
+    return m.last_unsat_pct
 
 class LegnickModel(mesa.Model):
     """the Legnick model"""
@@ -52,21 +86,20 @@ class LegnickModel(mesa.Model):
 
         # data collection
         self.datacollector = mesa.DataCollector(
-            model_reporters={
-            "Employment": lambda m: sum(1 for h in m.agents.select(agent_type=Household) if h.type_b_connection is not None),
-            "AvgPrice": lambda m: sum(f.p_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
-            "AvgWage": lambda m: sum(f.w_f for f in m.agents.select(agent_type=Firm)) / m.n_firms,
-            "TotalInv": lambda m: sum(f.i_f for f in m.agents.select(agent_type=Firm)),
-            "PriceStd": lambda m: statistics.stdev([f.p_f for f in m.agents.select(agent_type=Firm)]),
-            "WageStd": lambda m: statistics.stdev([f.w_f for f in m.agents.select(agent_type=Firm)]),
-            "InvStd": lambda m: statistics.stdev([f.i_f for f in m.agents.select(agent_type=Firm)]),
-            "NumOpenPositions": lambda m: sum(1 for f in m.agents.select(agent_type=Firm) if f.open_position),
-            "HHLiquidity": lambda m: sum(h.m_h for h in m.agents.select(agent_type=Household)),
-            "FirmLiquidity": lambda m: sum(f.m_f + f.buffer for f in m.agents.select(agent_type=Firm)),
-            "UnsatisfiedDemandPct": lambda m: m.last_unsat_pct
-
-},
-        )
+        model_reporters={
+            "Employment": _employment,
+            "AvgPrice": _avg_price,
+            "AvgWage": _avg_wage,
+            "TotalInv": _total_inv,
+            "PriceStd": _price_std,
+            "WageStd": _wage_std,
+            "InvStd": _inv_std,
+            "NumOpenPositions": _num_open_positions,
+            "HHLiquidity": _hh_liquidity,
+            "FirmLiquidity": _firm_liquidity,
+            "UnsatisfiedDemandPct": _unsatisfied_demand_pct,
+    },
+)
 
         # create agents
         Household.create_agents(model=self, n=n_households)
@@ -106,13 +139,16 @@ class LegnickModel(mesa.Model):
                                                     phi_emp_lower=self.phi_emp_lower)
 
             # set prices
-            self.agents.select(agent_type=Firm).do("set_prices", phi_price_upper=self.phi_price_upper,
-                                                    phi_price_lower=self.phi_price_lower,
-                                                    ld=self.ld,
-                                                    theta=self.theta,
-                                                    phi_emp_upper=self.phi_emp_upper,
-                                                    vartheta=self.vartheta,
-                                                    phi_emp_lower=self.phi_emp_lower)
+            if self.pricing_mode == "llm":
+                price_firms_concurrently(self.firms, self.ld)
+            else:
+                self.agents.select(agent_type=Firm).do("set_prices_rule", phi_price_upper=self.phi_price_upper, 
+                                                        phi_price_lower=self.phi_price_lower, 
+                                                        ld=self.ld,
+                                                        theta=self.theta,
+                                                        phi_emp_upper=self.phi_emp_upper,
+                                                        vartheta=self.vartheta,
+                                                        phi_emp_lower=self.phi_emp_lower)
             
             # households:
             # shuffle once, reuse the same order for every procedure this month start 
@@ -153,11 +189,19 @@ class LegnickModel(mesa.Model):
 
             month_num = self.counter // 21
             for f in self.firms:
-                self.firm_snapshots.append({
+                snapshot = {
                     'month': month_num, 'firm_id': f.unique_id,
                     'num_workers': len(f.workers), 'price': f.p_f,
                     'wage': f.w_f, 'inventory': f.i_f, 'demand': f.demand,
-                })
+                }
+                if self.pricing_mode == 'llm' and f.price_log:
+                    _, logged_price, reasoning, ok, elapsed, input_i_f, input_demand = f.price_log[-1]
+                    snapshot['llm_reasoning'] = reasoning
+                    snapshot['llm_ok'] = ok
+                    snapshot['llm_elapsed'] = elapsed
+                    snapshot['llm_input_inventory'] = input_i_f
+                    snapshot['llm_input_demand'] = input_demand
+                self.firm_snapshots.append(snapshot)
             distribute_all_profits(self)
 
 

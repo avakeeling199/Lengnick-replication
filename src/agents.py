@@ -1,6 +1,10 @@
 import numpy as np
 import mesa
 import math
+from collections import deque
+
+from src.llm.client import call_ollama_price
+from src.llm.parsing import parse_price_response
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -165,6 +169,10 @@ class Firm(mesa.Agent):
         self.months_full = 0
         self.demand = 1
         self.to_fire = [] # workers that are being fired next month
+        self.i_f_history = deque(maxlen=3)
+        self.p_f_history = deque(maxlen=3)
+        self.demand_history = deque(maxlen=3) # added histories for the llm prompt
+        self.price_log = [] 
 
     def produce(self, ld):
         """produce goods"""
@@ -228,6 +236,11 @@ class Firm(mesa.Agent):
         # draw from uniform dist
         mu = self.random.uniform(0, delta)
         if self.open_position == True:
+            if self.w_f <= 0:
+                # wage can be driven to exactly 0 in pay_wages() when a firm
+                # can't cover payroll; multiplying by (1 + mu) can never lift
+                # it back off 0, so give it a nominal floor to recover from.
+                self.w_f = 1.0
             self.w_f = self.w_f * (1 + mu)
             #self.w_f = max(1, math.ceil(self.w_f)) # round
             self.months_full = 0
@@ -288,7 +301,7 @@ class Firm(mesa.Agent):
             self.open_position = False
 
 
-    def set_prices(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
+    def set_prices_rule(self, phi_price_upper, phi_price_lower, ld, theta, phi_emp_upper, vartheta, phi_emp_lower):
         # only consider if inventory in the right amount
         i_f_upperbar = phi_emp_upper * self.demand
         i_f_lowerbar = phi_emp_lower * self.demand
@@ -315,8 +328,50 @@ class Firm(mesa.Agent):
                     #self.p_f = math.ceil(self.p_f)
 
         self.demand = 0
-        
+
+    def set_prices_llm(self, ld):
+        mc_f = self.w_f / (21 * ld)
+        raw_text, elapsed = call_ollama_price(self.i_f, self.p_f, mc_f, self.demand,
+                                               self.p_f_history, self.demand_history, self.i_f_history)
+        new_price, reasoning, ok = parse_price_response(raw_text, current_price=self.p_f)
+
+        print(f"[LLM pricing] step {self.model.counter}, firm {self.unique_id}, elapsed={elapsed:.2f}s, "
+              f"price {self.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
+
+        self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed))
+        self.demand_history.append(self.demand)
+        self.p_f = new_price
+        self.demand = 0
+        self.i_f_history.append(self.i_f)
+        self.p_f_history.append(self.p_f)
 
 
+from concurrent.futures import ThreadPoolExecutor
+
+def price_firms_concurrently(firms, ld, max_workers=12):
+    """
+    Dispatch LLM pricing calls for all firms concurrently via threads.
+    """
+    def price_one(firm):
+        mc_f = firm.w_f / (21 * ld)
+        input_i_f = firm.i_f
+        input_demand = firm.demand
+        raw_text, elapsed = call_ollama_price(input_i_f, firm.p_f, mc_f, input_demand,
+                                               firm.p_f_history, firm.demand_history, firm.i_f_history)
+        new_price, reasoning, ok = parse_price_response(raw_text, current_price = firm.p_f)
+        print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, "
+              f"price {firm.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
+        return firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(price_one, firms))
+
+    for firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand in results:
+        firm.price_log.append((firm.model.counter, new_price, reasoning, ok, elapsed, input_i_f, input_demand))
+        firm.demand_history.append(input_demand)
+        firm.p_f = new_price
+        firm.demand = 0
+        firm.i_f_history.append(firm.i_f)
+        firm.p_f_history.append(firm.p_f)
 
 

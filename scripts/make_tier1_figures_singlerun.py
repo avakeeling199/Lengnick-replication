@@ -7,7 +7,7 @@ observations across months WITHIN that one run, and the time-series
 panels showing a 50-year subperiod of that same run.
 
 Usage:
-    python make_tier1_figures_singlerun.py diagnostics/run_seed<SEED>.csv \
+    python scripts/make_tier1_figures_singlerun.py diagnostics/run_seed<SEED>.csv \
         diagnostics/firm_snapshots_seed<SEED>.csv
 """
 import sys
@@ -23,7 +23,7 @@ run_path = sys.argv[1]
 firm_path = sys.argv[2]
 out_dir = os.path.dirname(run_path) or '.'
 
-BURN_IN_MONTHS = 1000
+BURN_IN_MONTHS = 0#1000
 REP_WINDOW = 600  # 50-year illustrative window, matching the paper
 
 df = pd.read_csv(run_path)
