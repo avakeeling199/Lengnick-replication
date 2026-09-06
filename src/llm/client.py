@@ -6,8 +6,10 @@ from src.llm.prompts import build_price_prompt
 OLLAMA_CHAT_URL = "http://localhost:11434/api/chat"
 MODEL = "llama3.3:70b"
 
-def call_ollama_price(i_f, p_f, mc_f, demand, price_history=None, demand_history=None, inventory_history=None):
-    prompt = build_price_prompt(i_f, p_f, mc_f, demand, price_history, demand_history, inventory_history)
+def call_ollama_price(i_f, p_f, mc_f, demand, price_history=None, demand_history=None, inventory_history=None,
+                       i_f_lowerbar=None, i_f_upperbar=None, p_f_lowerbar=None, p_f_upperbar=None):
+    prompt = build_price_prompt(i_f, p_f, mc_f, demand, price_history, demand_history, inventory_history,
+                                 i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
     payload = {
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],

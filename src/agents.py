@@ -329,11 +329,17 @@ class Firm(mesa.Agent):
 
         self.demand = 0
 
-    def set_prices_llm(self, ld):
+    def set_prices_llm(self, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower):
         mc_f = self.w_f / (21 * ld)
+        i_f_lowerbar = phi_emp_lower * self.demand
+        i_f_upperbar = phi_emp_upper * self.demand
+        p_f_lowerbar = phi_price_lower * mc_f
+        p_f_upperbar = phi_price_upper * mc_f
         raw_text, elapsed = call_ollama_price(self.i_f, self.p_f, mc_f, self.demand,
-                                               self.p_f_history, self.demand_history, self.i_f_history)
-        new_price, reasoning, ok = parse_price_response(raw_text, current_price=self.p_f)
+                                               self.p_f_history, self.demand_history, self.i_f_history,
+                                               i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
+        new_price, reasoning, ok = parse_price_response(raw_text, current_price=self.p_f,
+                                                          p_f_lowerbar=p_f_lowerbar, p_f_upperbar=p_f_upperbar)
 
         print(f"[LLM pricing] step {self.model.counter}, firm {self.unique_id}, elapsed={elapsed:.2f}s, "
               f"price {self.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
@@ -348,7 +354,8 @@ class Firm(mesa.Agent):
 
 from concurrent.futures import ThreadPoolExecutor
 
-def price_firms_concurrently(firms, ld, max_workers=12):
+def price_firms_concurrently(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
+                              max_workers=12):
     """
     Dispatch LLM pricing calls for all firms concurrently via threads.
     """
@@ -356,9 +363,15 @@ def price_firms_concurrently(firms, ld, max_workers=12):
         mc_f = firm.w_f / (21 * ld)
         input_i_f = firm.i_f
         input_demand = firm.demand
+        i_f_lowerbar = phi_emp_lower * input_demand
+        i_f_upperbar = phi_emp_upper * input_demand
+        p_f_lowerbar = phi_price_lower * mc_f
+        p_f_upperbar = phi_price_upper * mc_f
         raw_text, elapsed = call_ollama_price(input_i_f, firm.p_f, mc_f, input_demand,
-                                               firm.p_f_history, firm.demand_history, firm.i_f_history)
-        new_price, reasoning, ok = parse_price_response(raw_text, current_price = firm.p_f)
+                                               firm.p_f_history, firm.demand_history, firm.i_f_history,
+                                               i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
+        new_price, reasoning, ok = parse_price_response(raw_text, current_price=firm.p_f,
+                                                          p_f_lowerbar=p_f_lowerbar, p_f_upperbar=p_f_upperbar)
         print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, "
               f"price {firm.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
         return firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand
