@@ -15,9 +15,7 @@ def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_histor
             "inventory move back toward its target band afterwards? If it "
             "did and you are still outside the band, a similar move may "
             "still be justified. If inventory is now back within its band, "
-            "that is evidence to hold or reverse -- do not keep moving the "
-            "price in the same direction just because it has been moving "
-            "that way recently.\n"
+            "that is evidence to hold or reverse.\n"
         )
 
     bands_section = ""
@@ -31,9 +29,10 @@ def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_histor
     if p_f_lowerbar is not None and p_f_upperbar is not None:
         bands_section += (
             f"- Price band relative to marginal cost: {p_f_lowerbar:.2f} to "
-            f"{p_f_upperbar:.2f}. Any price you set outside this band will "
-            "be clamped back into it automatically, so there is no benefit "
-            "to proposing a price beyond it.\n"
+            f"{p_f_upperbar:.2f}. You can move outside this band if the "
+            "evidence justifies it, but once price has reached an edge, "
+            "further moves in that same direction will be blocked -- only "
+            "a move back toward the band will take effect.\n"
         )
 
     return (

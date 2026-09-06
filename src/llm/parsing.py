@@ -7,10 +7,13 @@ def parse_price_response(raw_text, current_price, max_change_frac=0.5,
 
     Falls back to 'current_price' (no change) on any failure: malformed JSON
     missing keys, wrong types, non-positive prices, or implausible jumps.
-    If p_f_lowerbar/p_f_upperbar are given, the resulting price is clamped
-    into that band (mirrors the hard marginal-cost band the rule-based
-    pricer enforces) so the LLM can't walk price arbitrarily far from cost
-    over many consecutive months.
+    If p_f_lowerbar/p_f_upperbar are given, a move is only blocked when it
+    would push price further past a boundary the current price has already
+    reached (mirrors the directional gate the rule-based pricer enforces:
+    only cut further once price is still >= the floor, only raise further
+    once price is still <= the ceiling). This still stops runaway drift far
+    from cost, but -- unlike a hard clamp -- lets price overshoot the band
+    and later correct, instead of pinning it to the edge every month.
     Returns (new_price, reasoning, ok) so callers can log what happened
     """
     try:
@@ -32,11 +35,11 @@ def parse_price_response(raw_text, current_price, max_change_frac=0.5,
     if not (lower <= new_price <= upper):
         return current_price, f"REJECTED (implausible jump to {new_price}): {reasoning}", False
 
-    if p_f_lowerbar is not None and new_price < p_f_lowerbar:
-        reasoning = f"{reasoning} [clamped {new_price:.2f} -> floor {p_f_lowerbar:.2f}]"
-        new_price = p_f_lowerbar
-    elif p_f_upperbar is not None and new_price > p_f_upperbar:
-        reasoning = f"{reasoning} [clamped {new_price:.2f} -> ceiling {p_f_upperbar:.2f}]"
-        new_price = p_f_upperbar
+    if p_f_lowerbar is not None and new_price < current_price and current_price <= p_f_lowerbar:
+        reasoning = f"{reasoning} [blocked further cut below floor {p_f_lowerbar:.2f}; held at {current_price:.2f}]"
+        new_price = current_price
+    elif p_f_upperbar is not None and new_price > current_price and current_price >= p_f_upperbar:
+        reasoning = f"{reasoning} [blocked further rise above ceiling {p_f_upperbar:.2f}; held at {current_price:.2f}]"
+        new_price = current_price
 
     return new_price, reasoning, True
