@@ -140,7 +140,11 @@ class LegnickModel(mesa.Model):
 
             # set prices
             if self.pricing_mode == "llm":
-                price_firms_concurrently(self.firms, self.ld)
+                price_firms_concurrently(self.firms, self.ld,
+                                          phi_price_upper=self.phi_price_upper,
+                                          phi_price_lower=self.phi_price_lower,
+                                          phi_emp_upper=self.phi_emp_upper,
+                                          phi_emp_lower=self.phi_emp_lower)
             else:
                 self.agents.select(agent_type=Firm).do("set_prices_rule", phi_price_upper=self.phi_price_upper, 
                                                         phi_price_lower=self.phi_price_lower, 
