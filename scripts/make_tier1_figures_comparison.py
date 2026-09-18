@@ -60,15 +60,25 @@ days_b = df_b.iloc[:n_months * 21].reset_index(drop=True)
 # =========================================================================
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
 
-axes[0].hist(post_a['UnsatisfiedDemandPct'].values, bins=np.linspace(0, 0.2, 200), density=True,
+ED_XMAX = 3.0  # UnsatisfiedDemandPct is already in percent units (not a 0-1 fraction);
+                # 3% covers ~99.4% of months in both runs, leaving the rare shock tail out of frame
+ed_bins = np.linspace(0, ED_XMAX, 200)
+ed_a = post_a['UnsatisfiedDemandPct'].values
+ed_b = post_b['UnsatisfiedDemandPct'].values
+axes[0].hist(ed_a, bins=ed_bins, density=True,
              histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
-axes[0].hist(post_b['UnsatisfiedDemandPct'].values, bins=np.linspace(0, 0.2, 200), density=True,
+axes[0].hist(ed_b, bins=ed_bins, density=True,
              histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
-axes[0].set_xlim(0, 0.2)
+axes[0].set_xlim(0, ED_XMAX)
+axes[0].set_yscale('log')
 axes[0].set_xlabel('Unsatisfied demand (in %)')
-axes[0].set_ylabel('Probability Density Function')
+axes[0].set_ylabel('Probability Density Function (log scale)')
 axes[0].set_title('Excess demand')
 axes[0].legend(fontsize=8)
+frac_a_in = (ed_a <= ED_XMAX).mean() * 100
+frac_b_in = (ed_b <= ED_XMAX).mean() * 100
+print(f"  fig4 excess-demand panel: {label_a} {frac_a_in:.1f}% of months <= {ED_XMAX}%, "
+      f"{label_b} {frac_b_in:.1f}% of months <= {ED_XMAX}% (rest are off-axis in the shock tail)")
 
 window_months = min(REP_WINDOW, n_months)
 window_a = post_a.iloc[:window_months]
@@ -84,6 +94,7 @@ axes[1].legend(fontsize=8)
 plt.tight_layout()
 out4 = os.path.join(out_dir, 'fig4_excess_demand_employment.pdf')
 plt.savefig(out4)
+plt.savefig(out4.replace('.pdf', '.png'), dpi=150)
 plt.close(fig)
 print(f"Wrote {out4}")
 
@@ -125,6 +136,7 @@ axes[1].legend(fontsize=8)
 plt.tight_layout()
 out5 = os.path.join(out_dir, 'fig5_phillips_beveridge.pdf')
 plt.savefig(out5)
+plt.savefig(out5.replace('.pdf', '.png'), dpi=150)
 plt.close(fig)
 print(f"Wrote {out5}")
 
@@ -142,8 +154,8 @@ def firm_sizes(fs_post):
 
 sizes_a, xlabel_a = firm_sizes(fs_a_post)
 sizes_b, xlabel_b = firm_sizes(fs_b_post)
-axes[0].hist(sizes_a, bins=200, density=True, histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
-axes[0].hist(sizes_b, bins=200, density=True, histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
+axes[0].hist(sizes_a, bins=60, density=True, histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
+axes[0].hist(sizes_b, bins=60, density=True, histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
 axes[0].set_xlabel(xlabel_a if xlabel_a == xlabel_b else f'{xlabel_a} / {xlabel_b}')
 axes[0].set_ylabel('Probability Density Function')
 axes[0].set_title('Firm size distribution')
@@ -161,8 +173,8 @@ def price_change_freqs(fs_post):
 
 freq_a = price_change_freqs(fs_a_post)
 freq_b = price_change_freqs(fs_b_post)
-axes[1].hist(freq_a, bins=60, density=True, histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
-axes[1].hist(freq_b, bins=60, density=True, histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
+axes[1].hist(freq_a, bins=40, density=True, histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
+axes[1].hist(freq_b, bins=40, density=True, histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
 axes[1].set_xlabel('Firms Changing Price (in %)')
 axes[1].set_ylabel('Probability Density Function')
 axes[1].set_title('Frequency of price changes')
@@ -171,6 +183,7 @@ axes[1].legend(fontsize=8)
 plt.tight_layout()
 out6 = os.path.join(out_dir, 'fig6_firmsize_pricefreq.pdf')
 plt.savefig(out6)
+plt.savefig(out6.replace('.pdf', '.png'), dpi=150)
 plt.close(fig)
 print(f"Wrote {out6}")
 print(f"  {label_a} median price-change frequency: {np.median(freq_a):.2f}% (paper: 9%)")
@@ -231,5 +244,6 @@ axes[1].legend(fontsize=7)
 plt.tight_layout()
 out7 = os.path.join(out_dir, 'fig7_gdpcorr_liquidity.pdf')
 plt.savefig(out7)
+plt.savefig(out7.replace('.pdf', '.png'), dpi=150)
 plt.close(fig)
 print(f"Wrote {out7}")

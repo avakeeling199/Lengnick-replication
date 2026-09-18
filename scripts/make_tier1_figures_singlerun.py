@@ -39,12 +39,16 @@ fs_post = fs[fs['month'] > BURN_IN_MONTHS]
 # =========================================================================
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
 
-axes[0].hist(post['UnsatisfiedDemandPct'].values, bins=np.linspace(0, 0.2, 200), density=True,
+ED_XMAX = 3.0  # UnsatisfiedDemandPct is already in percent units (not a 0-1 fraction)
+ed = post['UnsatisfiedDemandPct'].values
+axes[0].hist(ed, bins=np.linspace(0, ED_XMAX, 200), density=True,
              histtype='step', color='black', linewidth=1.0)
-axes[0].set_xlim(0, 0.2)
+axes[0].set_xlim(0, ED_XMAX)
+axes[0].set_yscale('log')
 axes[0].set_xlabel('Unsatisfied demand (in %)')
-axes[0].set_ylabel('Probability Density Function')
+axes[0].set_ylabel('Probability Density Function (log scale)')
 axes[0].set_title('Excess demand')
+print(f"  fig4 excess-demand panel: {(ed <= ED_XMAX).mean()*100:.1f}% of months <= {ED_XMAX}% (rest off-axis)")
 
 window = post.iloc[:REP_WINDOW]
 years = window.index / 12
