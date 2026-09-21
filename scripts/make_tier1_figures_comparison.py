@@ -30,6 +30,20 @@ REP_WINDOW = 600  # 50-year illustrative window, matching the paper
 COLOR_A = '#1f77b4'
 COLOR_B = '#d62728'
 
+# Figures are built at (roughly) their final printed size so the font sizes below
+# are what the reader sees in the report (no shrinking when included at full width).
+FIGSIZE = (7.5, 3.6)
+plt.rcParams.update({
+    'font.size': 11,
+    'axes.titlesize': 12,
+    'axes.labelsize': 11,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 9,
+    'lines.linewidth': 1.5,
+    'axes.linewidth': 0.9,
+})
+
 
 def load(run_path, firm_path):
     df = pd.read_csv(run_path)
@@ -58,7 +72,7 @@ days_b = df_b.iloc[:n_months * 21].reset_index(drop=True)
 # =========================================================================
 # FIGURE 4: Excess demand (left) + Employment, 50-yr window (right)
 # =========================================================================
-fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+fig, axes = plt.subplots(1, 2, figsize=FIGSIZE)
 
 ED_XMAX = 3.0  # UnsatisfiedDemandPct is already in percent units (not a 0-1 fraction);
                 # 3% covers ~99.4% of months in both runs, leaving the rare shock tail out of frame
@@ -66,15 +80,15 @@ ed_bins = np.linspace(0, ED_XMAX, 200)
 ed_a = post_a['UnsatisfiedDemandPct'].values
 ed_b = post_b['UnsatisfiedDemandPct'].values
 axes[0].hist(ed_a, bins=ed_bins, density=True,
-             histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
+             histtype='step', color=COLOR_A, linewidth=1.5, label=label_a)
 axes[0].hist(ed_b, bins=ed_bins, density=True,
-             histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
+             histtype='step', color=COLOR_B, linewidth=1.5, label=label_b)
 axes[0].set_xlim(0, ED_XMAX)
 axes[0].set_yscale('log')
 axes[0].set_xlabel('Unsatisfied demand (in %)')
-axes[0].set_ylabel('Probability Density Function (log scale)')
-axes[0].set_title('Excess demand')
-axes[0].legend(fontsize=8)
+axes[0].set_ylabel('PDF (log scale)')
+axes[0].set_title('a. Excess demand')
+axes[0].legend()
 frac_a_in = (ed_a <= ED_XMAX).mean() * 100
 frac_b_in = (ed_b <= ED_XMAX).mean() * 100
 print(f"  fig4 excess-demand panel: {label_a} {frac_a_in:.1f}% of months <= {ED_XMAX}%, "
@@ -84,17 +98,17 @@ window_months = min(REP_WINDOW, n_months)
 window_a = post_a.iloc[:window_months]
 window_b = post_b.iloc[:window_months]
 years = window_a.index / 12
-axes[1].plot(years, window_a['Employment'], color=COLOR_A, linewidth=0.7, label=label_a)
-axes[1].plot(years, window_b['Employment'], color=COLOR_B, linewidth=0.7, label=label_b)
+axes[1].plot(years, window_a['Employment'], color=COLOR_A, linewidth=1.0, label=label_a)
+axes[1].plot(years, window_b['Employment'], color=COLOR_B, linewidth=1.0, label=label_b)
 axes[1].set_xlabel('Years')
 axes[1].set_ylabel('Employed households')
-axes[1].set_title(f'Employment, {window_months}-month subperiod')
-axes[1].legend(fontsize=8)
+axes[1].set_title(f'b. Employment, {window_months // 12}-year window')
+axes[1].legend()
 
 plt.tight_layout()
 out4 = os.path.join(out_dir, 'fig4_excess_demand_employment.pdf')
-plt.savefig(out4)
-plt.savefig(out4.replace('.pdf', '.png'), dpi=150)
+plt.savefig(out4, bbox_inches='tight')
+plt.savefig(out4.replace('.pdf', '.png'), dpi=300, bbox_inches='tight')
 plt.close(fig)
 print(f"Wrote {out4}")
 
@@ -118,32 +132,32 @@ def phillips_beveridge_data(post):
 delta_p_a, jitter_u_a, jitter_v_a = phillips_beveridge_data(post_a)
 delta_p_b, jitter_u_b, jitter_v_b = phillips_beveridge_data(post_b)
 
-fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-axes[0].scatter(delta_p_a, jitter_u_a, s=4, alpha=0.4, color=COLOR_A, label=label_a)
-axes[0].scatter(delta_p_b, jitter_u_b, s=4, alpha=0.4, color=COLOR_B, label=label_b)
+fig, axes = plt.subplots(1, 2, figsize=FIGSIZE)
+axes[0].scatter(delta_p_a, jitter_u_a, s=8, alpha=0.4, color=COLOR_A, label=label_a)
+axes[0].scatter(delta_p_b, jitter_u_b, s=8, alpha=0.4, color=COLOR_B, label=label_b)
 axes[0].set_ylabel('Unemployment (absolute)')
 axes[0].set_xlabel(r'$\Delta P$')
-axes[0].set_title('Phillips curve')
-axes[0].legend(fontsize=8)
+axes[0].set_title('a. Phillips curve')
+axes[0].legend()
 
-axes[1].scatter(jitter_v_a, jitter_u_a, s=4, alpha=0.4, color=COLOR_A, label=label_a)
-axes[1].scatter(jitter_v_b, jitter_u_b, s=4, alpha=0.4, color=COLOR_B, label=label_b)
+axes[1].scatter(jitter_v_a, jitter_u_a, s=8, alpha=0.4, color=COLOR_A, label=label_a)
+axes[1].scatter(jitter_v_b, jitter_u_b, s=8, alpha=0.4, color=COLOR_B, label=label_b)
 axes[1].set_ylabel('Unemployment (absolute)')
 axes[1].set_xlabel('Vacancies')
-axes[1].set_title('Beveridge curve')
-axes[1].legend(fontsize=8)
+axes[1].set_title('b. Beveridge curve')
+axes[1].legend()
 
 plt.tight_layout()
 out5 = os.path.join(out_dir, 'fig5_phillips_beveridge.pdf')
-plt.savefig(out5)
-plt.savefig(out5.replace('.pdf', '.png'), dpi=150)
+plt.savefig(out5, bbox_inches='tight')
+plt.savefig(out5.replace('.pdf', '.png'), dpi=300, bbox_inches='tight')
 plt.close(fig)
 print(f"Wrote {out5}")
 
 # =========================================================================
 # FIGURE 6: Firm size distribution (left) + price-change frequency (right)
 # =========================================================================
-fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+fig, axes = plt.subplots(1, 2, figsize=FIGSIZE)
 
 
 def firm_sizes(fs_post):
@@ -154,12 +168,12 @@ def firm_sizes(fs_post):
 
 sizes_a, xlabel_a = firm_sizes(fs_a_post)
 sizes_b, xlabel_b = firm_sizes(fs_b_post)
-axes[0].hist(sizes_a, bins=60, density=True, histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
-axes[0].hist(sizes_b, bins=60, density=True, histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
+axes[0].hist(sizes_a, bins=60, density=True, histtype='step', color=COLOR_A, linewidth=1.5, label=label_a)
+axes[0].hist(sizes_b, bins=60, density=True, histtype='step', color=COLOR_B, linewidth=1.5, label=label_b)
 axes[0].set_xlabel(xlabel_a if xlabel_a == xlabel_b else f'{xlabel_a} / {xlabel_b}')
-axes[0].set_ylabel('Probability Density Function')
-axes[0].set_title('Firm size distribution')
-axes[0].legend(fontsize=8)
+axes[0].set_ylabel('PDF')
+axes[0].set_title('a. Firm size distribution')
+axes[0].legend()
 
 
 def price_change_freqs(fs_post):
@@ -173,17 +187,17 @@ def price_change_freqs(fs_post):
 
 freq_a = price_change_freqs(fs_a_post)
 freq_b = price_change_freqs(fs_b_post)
-axes[1].hist(freq_a, bins=40, density=True, histtype='step', color=COLOR_A, linewidth=1.0, label=label_a)
-axes[1].hist(freq_b, bins=40, density=True, histtype='step', color=COLOR_B, linewidth=1.0, label=label_b)
+axes[1].hist(freq_a, bins=40, density=True, histtype='step', color=COLOR_A, linewidth=1.5, label=label_a)
+axes[1].hist(freq_b, bins=40, density=True, histtype='step', color=COLOR_B, linewidth=1.5, label=label_b)
 axes[1].set_xlabel('Firms Changing Price (in %)')
-axes[1].set_ylabel('Probability Density Function')
-axes[1].set_title('Frequency of price changes')
-axes[1].legend(fontsize=8)
+axes[1].set_ylabel('PDF')
+axes[1].set_title('b. Frequency of price changes')
+axes[1].legend()
 
 plt.tight_layout()
 out6 = os.path.join(out_dir, 'fig6_firmsize_pricefreq.pdf')
-plt.savefig(out6)
-plt.savefig(out6.replace('.pdf', '.png'), dpi=150)
+plt.savefig(out6, bbox_inches='tight')
+plt.savefig(out6.replace('.pdf', '.png'), dpi=300, bbox_inches='tight')
 plt.close(fig)
 print(f"Wrote {out6}")
 print(f"  {label_a} median price-change frequency: {np.median(freq_a):.2f}% (paper: 9%)")
@@ -220,30 +234,36 @@ def ccf_series(post):
 lags_a, ccf_a = ccf_series(post_a)
 lags_b, ccf_b = ccf_series(post_b)
 
-fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+fig, axes = plt.subplots(1, 2, figsize=FIGSIZE)
 axes[0].plot(lags_a, ccf_a, 'o-', color=COLOR_A, label=label_a)
 axes[0].plot(lags_b, ccf_b, 'o-', color=COLOR_B, label=label_b)
 axes[0].axhline(0, color='k', linewidth=0.5)
 axes[0].set_xlabel('lag k (quarters)')
 axes[0].set_ylabel('correlation')
-axes[0].set_title('GDP (Employment) vs lagged prices')
-axes[0].legend(fontsize=8)
+axes[0].set_title('a. GDP vs lagged prices')
+axes[0].set_ylim(-0.75, 1.0)  # headroom so the legend clears the data
+axes[0].legend(loc='upper right')
 
 liq_months = min(BURN_IN_MONTHS + 6, n_months)
 daily_a = days_a.iloc[BURN_IN_MONTHS * 21: liq_months * 21].reset_index(drop=True)
 daily_b = days_b.iloc[BURN_IN_MONTHS * 21: liq_months * 21].reset_index(drop=True)
-axes[1].plot(daily_a.index, daily_a['HHLiquidity'], color=COLOR_A, linestyle='-', label=f'{label_a} - HH')
-axes[1].plot(daily_a.index, daily_a['FirmLiquidity'], color=COLOR_A, linestyle='--', label=f'{label_a} - Firm')
-axes[1].plot(daily_b.index, daily_b['HHLiquidity'], color=COLOR_B, linestyle='-', label=f'{label_b} - HH')
-axes[1].plot(daily_b.index, daily_b['FirmLiquidity'], color=COLOR_B, linestyle='--', label=f'{label_b} - Firm')
+# LLM and rule-based curves are near-identical: LLM drawn as a solid line, rule-based as a
+# dashed line on top, so both remain visible where they overlap.
+for col in ('HHLiquidity', 'FirmLiquidity'):
+    lab_a = label_a if col == 'HHLiquidity' else None
+    lab_b = label_b if col == 'HHLiquidity' else None
+    axes[1].plot(daily_a.index, daily_a[col] / 1e6, color=COLOR_A, label=lab_a)
+    axes[1].plot(daily_b.index, daily_b[col] / 1e6, color=COLOR_B, linestyle=(0, (3, 4)), label=lab_b)  # long gaps so the blue shows through
+axes[1].text(3, 2.75, 'Households', fontsize=10, va='top')
+axes[1].text(3, 0.4, 'Firms', fontsize=10, va='bottom')
 axes[1].set_xlabel('day')
-axes[1].set_ylabel('Aggregate liquidity')
-axes[1].set_title(f'Liquidity circulation, {liq_months - BURN_IN_MONTHS}-month window')
-axes[1].legend(fontsize=7)
+axes[1].set_ylabel('Liquidity (millions)')
+axes[1].set_title('b. Aggregate liquidity')
+axes[1].legend(loc='center right')
 
 plt.tight_layout()
 out7 = os.path.join(out_dir, 'fig7_gdpcorr_liquidity.pdf')
-plt.savefig(out7)
-plt.savefig(out7.replace('.pdf', '.png'), dpi=150)
+plt.savefig(out7, bbox_inches='tight')
+plt.savefig(out7.replace('.pdf', '.png'), dpi=300, bbox_inches='tight')
 plt.close(fig)
 print(f"Wrote {out7}")
