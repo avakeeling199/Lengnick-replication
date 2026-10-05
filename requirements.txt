@@ -3,4 +3,5 @@ pandas==3.0.3
 numpy==2.5.0
 networkx
 matplotlib
-requestsmesa-llm==0.3.2
+requests
+mesa-llm==0.3.2
