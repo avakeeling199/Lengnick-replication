@@ -2,8 +2,8 @@ from mesa_llm.module_llm import ModuleLLM, RETRYABLE_EXCEPTIONS, acompletion
 from tenacity import AsyncRetrying, retry_if_exception_type, wait_exponential
 
 class SamplingModuleLLM(ModuleLLM):
-        # note that this is different to how it would have to be to PR with mesa-llm because this is an earlier 
-        # released version, what is live on github is different
+    # note that this is different to how it would have to be to PR with mesa-llm because this is an earlier 
+    # released version, what is live on github is different
     def __init__(self, llm_model, api_base=None, system_prompt=None, **sampling):
         super().__init__(llm_model=llm_model, api_base=api_base, system_prompt=system_prompt)
 
