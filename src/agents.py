@@ -5,6 +5,9 @@ from collections import deque
 
 from src.llm.client import call_ollama_price
 from src.llm.parsing import parse_price_response
+from mesa_llm.llm_agent import LLMAgent
+from mesa_llm.reasoning.cot import CoTReasoning
+from src.llm.sampling_llm import SamplingModuleLLM
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -350,6 +353,21 @@ class Firm(mesa.Agent):
         self.demand = 0
         self.i_f_history.append(self.i_f)
         self.p_f_history.append(self.p_f)
+
+
+class LLMFirm(LLMAgent, Firm):
+    """Firm agent with LLM reasoning"""
+    BACKENDS = {"direct"}
+
+    def __init__(self, model, llm_model, backend="direct", temperature=0.3,
+                api_base=None, reasoning=CoTReasoning):
+        if backend not in self.BACKENDS:
+            raise ValueError(f"unknown backend {backend!r}; expected one of {sorted(self.BACKENDS)}")
+        super().__init__(model=model, reasoning=reasoning, llm_model=llm_model, api_base=api_base)
+        #swap in now so that LLMAgent doesnt overwrite
+        self.llm = SamplingModuleLLM(llm_model=llm_model, api_base=api_base, temperature=temperature)
+
+        self.backend = backend
 
 
 from concurrent.futures import ThreadPoolExecutor
