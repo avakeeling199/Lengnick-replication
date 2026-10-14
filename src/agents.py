@@ -2,6 +2,7 @@ import numpy as np
 import mesa
 import math
 import time
+import asyncio
 from collections import deque
 
 from src.llm.client import call_ollama_price
@@ -431,4 +432,10 @@ def price_firms_concurrently(firms, ld, phi_price_upper, phi_price_lower, phi_em
         firm.i_f_history.append(firm.i_f)
         firm.p_f_history.append(firm.p_f)
 
-
+async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
+                max_concurrent=12):
+    sem = asyncio.Semaphore(max_concurrent)
+    async def price_one(firm):
+        async with sem: 
+            return await firm.aset_price(ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower)
+    return await asyncio.gather(*(price_one(f) for f in firms))
