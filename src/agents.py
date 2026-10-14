@@ -1,6 +1,7 @@
 import numpy as np
 import mesa
 import math
+import time
 from collections import deque
 
 from src.llm.client import call_ollama_price
@@ -8,6 +9,7 @@ from src.llm.parsing import parse_price_response
 from mesa_llm.llm_agent import LLMAgent
 from mesa_llm.reasoning.cot import CoTReasoning
 from src.llm.sampling_llm import SamplingModuleLLM
+from src.llm.prompts import build_price_prompt, PRICE_RESPONSE_FORMAT
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -369,6 +371,30 @@ class LLMFirm(LLMAgent, Firm):
 
         self.backend = backend
 
+    async def aset_price(self, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower):
+        i_f = self.i_f
+        demand = self.demand
+        p_f = self.p_f
+        mc_f = self.w_f / (21 * ld)
+        i_f_lowerbar = phi_emp_lower * demand
+        i_f_upperbar = phi_emp_upper * demand
+        p_f_lowerbar = phi_price_lower * mc_f
+        p_f_upperbar = phi_price_upper * mc_f
+        prompt = build_price_prompt(i_f, p_f, mc_f, demand, self.p_f_history, self.demand_history,
+                                    self.i_f_history, i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
+        start = time.perf_counter()
+        response = await self.llm.agenerate(prompt, response_format=PRICE_RESPONSE_FORMAT)
+        elapsed = time.perf_counter() - start
+        resp_text = response.choices[0].message.content
+        new_price, reasoning, ok = parse_price_response(resp_text, current_price=p_f, p_f_lowerbar=p_f_lowerbar,
+                                        p_f_upperbar=p_f_upperbar)
+        self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed, i_f, demand))
+        self.demand_history.append(demand)
+        self.p_f = new_price
+        self.demand = 0
+        self.i_f_history.append(self.i_f)
+        self.p_f_history.append(self.p_f)
+        return new_price, ok
 
 from concurrent.futures import ThreadPoolExecutor
 
