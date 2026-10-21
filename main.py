@@ -22,9 +22,13 @@ def main():
     parser.add_argument('--n-firms', type=int, default=100)
     parser.add_argument('--pricing-mode', choices=['rule', 'llm'], default='rule', 
                         help='whether firms use rule-based or LLM-based pricing')
-    parser.add_argument('--llm-model', type=str, default=None)
-    parser.add_argument('--llm-api-base', type=str, default=None)
-    parser.add_argument('--llm-temperature', type=float, default=0.3)
+    parser.add_argument('--llm-model', type=str, default=None,
+                        help="what model you want used as your LLM firm")
+    parser.add_argument('--llm-api-base', type=str, default=None, 
+                        help="URL of the LLM server, e.g. https://localhost:11434 for local Ollama " \
+                        "or https://<node>:11434 on the cluster (default: LiteLLM picks based on the model)")
+    parser.add_argument('--llm-temperature', type=float, default=0.3,
+                        help='sampling temperature for LLM pricing calls (default=0.3)')
     parser.add_argument('--resume-from', type=str, default=None,
                         help='path to a checkpoint .pkl to resume from')
     args = parser.parse_args()
@@ -51,6 +55,7 @@ def main():
         model_params['pricing_mode'] = args.pricing_mode
         model_params['llm_model'] = args.llm_model
         model_params['llm_temperature'] = args.llm_temperature
+        model_params['llm_api_base'] = args.llm_api_base
         model = LegnickModel(**model_params)
 
 
