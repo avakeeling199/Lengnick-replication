@@ -58,7 +58,6 @@ def main():
         model_params['llm_api_base'] = args.llm_api_base
         model = LegnickModel(**model_params)
 
-
     t0 = time.time()
     target_steps = args.months * 21
     remaining_steps = target_steps - model.counter

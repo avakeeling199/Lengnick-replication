@@ -4,3 +4,4 @@ numpy==2.5.0
 networkx
 matplotlib
 mesa-llm==0.3.2
+pytest
