@@ -24,6 +24,15 @@ def parse_price_response(raw_text, current_price, max_change_frac=0.5,
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return current_price, f"PARSE_FAILURE: {raw_text!r}", False
 
+    return validate_price(action, new_price, reasoning, current_price, max_change_frac, 
+                        p_f_lowerbar, p_f_upperbar)
+    
+
+def validate_price(action, new_price, reasoning, current_price, max_change_frac=0.5,
+                    p_f_lowerbar=None, p_f_upperbar=None):
+    """ 
+    applies the pricing guards to an already parsed decision and returns (new_price, reasoning, ok)
+    """
     if action == "hold":
         return current_price, reasoning, True
 

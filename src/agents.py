@@ -1,10 +1,14 @@
 import numpy as np
 import mesa
 import math
+import time
+import asyncio
 from collections import deque
-
-from src.llm.client import call_ollama_price
 from src.llm.parsing import parse_price_response
+from mesa_llm.llm_agent import LLMAgent
+from mesa_llm.reasoning.cot import CoTReasoning
+from src.llm.sampling_llm import SamplingModuleLLM
+from src.llm.prompts import build_price_prompt, PRICE_RESPONSE_FORMAT
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -329,62 +333,49 @@ class Firm(mesa.Agent):
 
         self.demand = 0
 
-    def set_prices_llm(self, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower):
+class LLMFirm(LLMAgent, Firm):
+    """Firm agent with LLM reasoning"""
+    BACKENDS = {"direct"}
+
+    def __init__(self, model, llm_model, backend="direct", temperature=0.3,
+                api_base=None, reasoning=CoTReasoning):
+        if backend not in self.BACKENDS:
+            raise ValueError(f"unknown backend {backend!r}; expected one of {sorted(self.BACKENDS)}")
+        super().__init__(model=model, reasoning=reasoning, llm_model=llm_model, api_base=api_base)
+        #swap in now so that LLMAgent doesnt overwrite
+        self.llm = SamplingModuleLLM(llm_model=llm_model, api_base=api_base, temperature=temperature)
+
+        self.backend = backend
+
+    async def aset_price(self, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower):
+        i_f = self.i_f
+        demand = self.demand
+        p_f = self.p_f
         mc_f = self.w_f / (21 * ld)
-        i_f_lowerbar = phi_emp_lower * self.demand
-        i_f_upperbar = phi_emp_upper * self.demand
+        i_f_lowerbar = phi_emp_lower * demand
+        i_f_upperbar = phi_emp_upper * demand
         p_f_lowerbar = phi_price_lower * mc_f
         p_f_upperbar = phi_price_upper * mc_f
-        raw_text, elapsed = call_ollama_price(self.i_f, self.p_f, mc_f, self.demand,
-                                               self.p_f_history, self.demand_history, self.i_f_history,
-                                               i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
-        new_price, reasoning, ok = parse_price_response(raw_text, current_price=self.p_f,
-                                                          p_f_lowerbar=p_f_lowerbar, p_f_upperbar=p_f_upperbar)
-
-        print(f"[LLM pricing] step {self.model.counter}, firm {self.unique_id}, elapsed={elapsed:.2f}s, "
-              f"price {self.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
-
-        self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed))
-        self.demand_history.append(self.demand)
+        prompt = build_price_prompt(i_f, p_f, mc_f, demand, self.p_f_history, self.demand_history,
+                                    self.i_f_history, i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
+        start = time.perf_counter()
+        response = await self.llm.agenerate(prompt, response_format=PRICE_RESPONSE_FORMAT)
+        elapsed = time.perf_counter() - start
+        resp_text = response.choices[0].message.content
+        new_price, reasoning, ok = parse_price_response(resp_text, current_price=p_f, p_f_lowerbar=p_f_lowerbar,
+                                        p_f_upperbar=p_f_upperbar)
+        self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed, i_f, demand))
+        self.demand_history.append(demand)
         self.p_f = new_price
         self.demand = 0
         self.i_f_history.append(self.i_f)
         self.p_f_history.append(self.p_f)
+        return new_price, ok
 
-
-from concurrent.futures import ThreadPoolExecutor
-
-def price_firms_concurrently(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
-                              max_workers=12):
-    """
-    Dispatch LLM pricing calls for all firms concurrently via threads.
-    """
-    def price_one(firm):
-        mc_f = firm.w_f / (21 * ld)
-        input_i_f = firm.i_f
-        input_demand = firm.demand
-        i_f_lowerbar = phi_emp_lower * input_demand
-        i_f_upperbar = phi_emp_upper * input_demand
-        p_f_lowerbar = phi_price_lower * mc_f
-        p_f_upperbar = phi_price_upper * mc_f
-        raw_text, elapsed = call_ollama_price(input_i_f, firm.p_f, mc_f, input_demand,
-                                               firm.p_f_history, firm.demand_history, firm.i_f_history,
-                                               i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
-        new_price, reasoning, ok = parse_price_response(raw_text, current_price=firm.p_f,
-                                                          p_f_lowerbar=p_f_lowerbar, p_f_upperbar=p_f_upperbar)
-        print(f"[LLM pricing] step {firm.model.counter}, firm {firm.unique_id}, elapsed={elapsed:.2f}s, "
-              f"price {firm.p_f:.2f} -> {new_price:.2f}, ok={ok}, reasoning={reasoning!r}", flush=True)
-        return firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(price_one, firms))
-
-    for firm, new_price, reasoning, ok, elapsed, input_i_f, input_demand in results:
-        firm.price_log.append((firm.model.counter, new_price, reasoning, ok, elapsed, input_i_f, input_demand))
-        firm.demand_history.append(input_demand)
-        firm.p_f = new_price
-        firm.demand = 0
-        firm.i_f_history.append(firm.i_f)
-        firm.p_f_history.append(firm.p_f)
-
-
+async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
+                max_concurrent=12):
+    sem = asyncio.Semaphore(max_concurrent)
+    async def price_one(firm):
+        async with sem: 
+            return await firm.aset_price(ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower)
+    return await asyncio.gather(*(price_one(f) for f in firms))

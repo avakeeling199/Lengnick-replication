@@ -1,3 +1,20 @@
+PRICE_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "price_decision",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["hold", "raise", "lower"]},
+                "new_price": {"type": "number"},
+                "reasoning": {"type": "string"},
+            },
+            "required": ["action", "new_price", "reasoning"],
+        },
+    },
+}
+
+
 def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_history=None,
                         inventory_history=None, i_f_lowerbar=None, i_f_upperbar=None,
                         p_f_lowerbar=None, p_f_upperbar=None):

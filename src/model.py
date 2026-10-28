@@ -1,8 +1,8 @@
 import numpy as np
 import mesa
-from src.agents import Household, Firm
 import statistics
-from src.agents import price_firms_concurrently
+from src.agents import Household, Firm, aprice_firms, LLMFirm
+import asyncio
 
 def distribute_all_profits(model):
     profits = sum(f.m_f for f in model.firms)
@@ -60,7 +60,8 @@ class LegnickModel(mesa.Model):
     """the Legnick model"""
     
     def __init__(self, n_households, n_firms, seed, alpha, n, ld, chi, gamma, delta, phi_emp_upper, phi_emp_lower, phi_price_lower, 
-                phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode):
+                phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode, llm_model=None, llm_api_base=None, 
+                llm_temperature=0.3, llm_backend="direct"):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -83,6 +84,8 @@ class LegnickModel(mesa.Model):
         self.psi_quant = psi_quant
         self.pie = pie
         self.pricing_mode = pricing_mode
+        if pricing_mode == "llm" and llm_model is None: 
+            raise ValueError("pricing_mode='llm' requires llm_model (e.g. 'ollama/llama3.2:3b')")
 
         # data collection
         self.datacollector = mesa.DataCollector(
@@ -103,7 +106,10 @@ class LegnickModel(mesa.Model):
 
         # create agents
         Household.create_agents(model=self, n=n_households)
-        Firm.create_agents(model=self, n=n_firms)
+        if pricing_mode == "llm":
+            LLMFirm.create_agents(model=self, n=n_firms, llm_model=llm_model, api_base=llm_api_base, temperature=llm_temperature, backend=llm_backend)
+        else:
+            Firm.create_agents(model=self, n=n_firms)
 
         self.Households = self.agents.select(agent_type = Household)
         self.firms = list(self.agents.select(agent_type = Firm))
@@ -140,11 +146,11 @@ class LegnickModel(mesa.Model):
 
             # set prices
             if self.pricing_mode == "llm":
-                price_firms_concurrently(self.firms, self.ld,
+                asyncio.run(aprice_firms(self.firms, self.ld,
                                           phi_price_upper=self.phi_price_upper,
                                           phi_price_lower=self.phi_price_lower,
                                           phi_emp_upper=self.phi_emp_upper,
-                                          phi_emp_lower=self.phi_emp_lower)
+                                          phi_emp_lower=self.phi_emp_lower))
             else:
                 self.agents.select(agent_type=Firm).do("set_prices_rule", phi_price_upper=self.phi_price_upper, 
                                                         phi_price_lower=self.phi_price_lower, 

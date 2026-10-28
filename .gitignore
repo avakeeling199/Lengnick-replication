@@ -26,6 +26,9 @@ outputs/
 .vscode/
 .idea/
 
+#figs
+figs/
+
 # logs
 l
 

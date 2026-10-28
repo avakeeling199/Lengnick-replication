@@ -300,7 +300,7 @@ def test_price_falls_when_inventory_above_upperbar(model, monkeypatch):
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.01)
     monkeypatch.setattr(model.random, "random", lambda: 0.0)  # forces < theta
-    f.set_prices(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
+    f.set_prices_rule(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
                  theta=0.75, phi_emp_upper=1, vartheta=0.02, phi_emp_lower=0.25)
 
     assert f.p_f == pytest.approx(2.2 * 0.99)
@@ -314,7 +314,7 @@ def test_price_rises_when_inventory_below_lowerbar(model, monkeypatch):
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.01)
     monkeypatch.setattr(model.random, "random", lambda: 0.0)
-    f.set_prices(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
+    f.set_prices_rule(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
                  theta=0.75, phi_emp_upper=1, vartheta=0.02, phi_emp_lower=0.25)
 
     assert f.p_f == pytest.approx(mc_f * 1.05 * 1.01)
@@ -326,7 +326,7 @@ def test_price_unchanged_when_inventory_within_band(model, monkeypatch):
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.01)
     monkeypatch.setattr(model.random, "random", lambda: 0.0)
-    f.set_prices(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
+    f.set_prices_rule(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
                  theta=0.75, phi_emp_upper=1, vartheta=0.02, phi_emp_lower=0.25)
 
     assert f.p_f == 2.2
@@ -340,7 +340,7 @@ def test_price_change_is_gated_by_theta_probability(model, monkeypatch):
 
     monkeypatch.setattr(model.random, "uniform", lambda a, b: 0.01)
     monkeypatch.setattr(model.random, "random", lambda: 0.99)  # fails < theta
-    f.set_prices(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
+    f.set_prices_rule(phi_price_upper=1.15, phi_price_lower=1.025, ld=3,
                  theta=0.75, phi_emp_upper=1, vartheta=0.02, phi_emp_lower=0.25)
 
     assert f.p_f == 2.2
