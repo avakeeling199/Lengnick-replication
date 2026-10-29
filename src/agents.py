@@ -89,8 +89,7 @@ class Household(mesa.Agent):
     def search_connections(self, psi_price, xi, psi_quant):
         if self.random.random() < psi_price:
             typeA = self.random.choice(self.type_a_connections)
-            all_firms = set(self.model.agents.select(agent_type=Firm))
-            no_type_as = list(all_firms - set(self.type_a_connections))
+            no_type_as = [f for f in self.model.firms if f not in self.type_a_connections]
             weights = [len(f.workers) for f in no_type_as]
             if sum(weights) == 0:
                 new_firm = self.random.choice(no_type_as)
@@ -104,14 +103,12 @@ class Household(mesa.Agent):
             
         if self.demand_const == True:
             if self.random.random() < psi_quant:
-                
                 shops = list(self.demand_const_shops.keys())
                 weights = list(self.demand_const_shops.values())
                 shop = self.random.choices(shops, weights=weights, k=1)[0]
-                if shop in self.type_a_connections:
 
-                    all_firms = set(self.model.agents.select(agent_type=Firm))
-                    no_type_as = list(all_firms - set(self.type_a_connections))
+                if shop in self.type_a_connections:
+                    no_type_as = [f for f in self.model.firms if f not in self.type_a_connections]
                     self.type_a_connections.remove(shop)
                     new_shop = self.random.choice(no_type_as)
                     self.type_a_connections.append(new_shop)
@@ -122,7 +119,7 @@ class Household(mesa.Agent):
     def job_search(self, beta, pie):
         # unemployed
         if self.type_b_connection == None:
-            firms = self.random.sample(list(self.model.agents.select(agent_type=Firm)), beta)
+            firms = self.random.sample(self.model.firms, beta)
             for f in firms:
                 if f.open_position == True:
                     if f.w_f >= self.w_h: # "greater than his currently received wage"? or meant to be w_h
@@ -134,8 +131,7 @@ class Household(mesa.Agent):
         else:
             if self.type_b_connection.w_f >= self.w_h:
                 if self.random.random() < pie:
-                    all_firms = set(self.model.agents.select(agent_type=Firm))
-                    no_type_b = list(all_firms - {self.type_b_connection})
+                    no_type_b = [f for f in self.model.firms if f is not self.type_b_connection]
                     f = self.random.choice(no_type_b)
                     if f.open_position == True:
                         if f.w_f >= self.type_b_connection.w_f:
@@ -145,8 +141,7 @@ class Household(mesa.Agent):
                             f.open_position = False
             # unsatisfied
             else: 
-                all_firms = set(self.model.agents.select(agent_type=Firm))
-                no_type_b = list(all_firms - {self.type_b_connection})
+                no_type_b = [f for f in self.model.firms if f is not self.type_b_connection]
                 f = self.random.choice(no_type_b)                
                 if f.open_position == True:
                     if f.w_f >= self.w_h or f.w_f >= self.type_b_connection.w_f:
