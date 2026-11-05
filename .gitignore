@@ -42,3 +42,4 @@ test*_snap.csv
 *.log
 *.out
 test*.csv
+cluster/
