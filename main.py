@@ -31,7 +31,13 @@ def main():
                         help='sampling temperature for LLM pricing calls (default=0.3)')
     parser.add_argument('--resume-from', type=str, default=None,
                         help='path to a checkpoint .pkl to resume from')
+    parser.add_argument('--max-concurrent', type=int, default=12, 
+                        help='max number of concurrent requests that can be sent to llm (default=12)')
+    parser.add_argument('--timings', type=str, default=None,
+                        help='PATH you would like the timings to be saved to')
     args = parser.parse_args()
+    if args.max_concurrent < 1:
+        parser.error('--max-concurrent must be at least 1')
 
     out_dir = os.path.dirname(args.out)
     if out_dir:
@@ -39,11 +45,15 @@ def main():
     snap_dir = os.path.dirname(args.firm_snapshots)
     if snap_dir:
         os.makedirs(snap_dir, exist_ok=True)
+    timings_dir = os.path.dirname(args.timings)
+    if timings_dir:
+        os.makedirs(timings_dir, exist_ok=True)
 
     steps = args.months * 21
     if args.resume_from:
         with open(args.resume_from, 'rb') as f:
             model = pickle.load(f)
+        model.max_concurrent = args.max_concurrent
         print(f"Resumed from {args.resume_from} at counter={model.counter}")
         if args.llm_model:
             print("all resumed runs will keep their original args. If you want to change this you must restart the simulation")
@@ -56,6 +66,7 @@ def main():
         model_params['llm_model'] = args.llm_model
         model_params['llm_temperature'] = args.llm_temperature
         model_params['llm_api_base'] = args.llm_api_base
+        model_params['max_concurrent'] = args.max_concurrent
         model = LegnickModel(**model_params)
 
     t0 = time.time()
@@ -70,6 +81,8 @@ def main():
                 f"({elapsed:.0f}s elapsed)", flush=True)
             model.datacollector.get_model_vars_dataframe().to_csv(args.out)
             pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
+            if args.timings:
+                pd.DataFrame(model.timings).to_csv(args.timings, index=False)
             with open(f"diagnostics/checkpoint_seed{args.seed}.pkl", 'wb') as f:
                 pickle.dump(model, f)
 
@@ -80,6 +93,8 @@ def main():
         pickle.dump(model, f)
 
     pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
+    if args.timings:
+        pd.DataFrame(model.timings).to_csv(args.timings, index=False)
 
     print(f"[seed {args.seed}] DONE in {time.time() - t0:.0f}s, "
         f"wrote {args.out} and {args.firm_snapshots}", flush=True)

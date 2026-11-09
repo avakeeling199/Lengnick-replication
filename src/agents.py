@@ -368,7 +368,7 @@ class LLMFirm(LLMAgent, Firm):
         return new_price, ok
 
 async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
-                max_concurrent=12):
+                max_concurrent):
     sem = asyncio.Semaphore(max_concurrent)
     async def price_one(firm):
         async with sem: 
