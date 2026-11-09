@@ -45,9 +45,10 @@ def main():
     snap_dir = os.path.dirname(args.firm_snapshots)
     if snap_dir:
         os.makedirs(snap_dir, exist_ok=True)
-    timings_dir = os.path.dirname(args.timings)
-    if timings_dir:
-        os.makedirs(timings_dir, exist_ok=True)
+    if args.timings:
+        timings_dir = os.path.dirname(args.timings)
+        if timings_dir:
+            os.makedirs(timings_dir, exist_ok=True)
 
     steps = args.months * 21
     if args.resume_from:
