@@ -3,6 +3,7 @@ import mesa
 import statistics
 from src.agents import Household, Firm, aprice_firms, LLMFirm
 import asyncio
+import time
 
 def distribute_all_profits(model):
     profits = sum(f.m_f for f in model.firms)
@@ -61,7 +62,7 @@ class LegnickModel(mesa.Model):
     
     def __init__(self, n_households, n_firms, seed, alpha, n, ld, chi, gamma, delta, phi_emp_upper, phi_emp_lower, phi_price_lower, 
                 phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode, llm_model=None, llm_api_base=None, 
-                llm_temperature=0.3, llm_backend="direct"):
+                llm_temperature=0.3, llm_backend="direct", max_concurrent=12):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -86,6 +87,8 @@ class LegnickModel(mesa.Model):
         self.pricing_mode = pricing_mode
         if pricing_mode == "llm" and llm_model is None: 
             raise ValueError("pricing_mode='llm' requires llm_model (e.g. 'ollama/llama3.2:3b')")
+        self.timings = []
+        self.max_concurrent = max_concurrent
 
         # data collection
         self.datacollector = mesa.DataCollector(
@@ -137,6 +140,8 @@ class LegnickModel(mesa.Model):
             #print(f"BEGINNING OF MONTH, counter={self.counter}")
 
             # beginning of month
+            # save time of month start
+            self._month_t0 = time.perf_counter()
             # firms:
             # each decide how to set w_f
             self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
@@ -146,12 +151,16 @@ class LegnickModel(mesa.Model):
 
             # set prices
             if self.pricing_mode == "llm":
+                t_price = time.perf_counter()
                 asyncio.run(aprice_firms(self.firms, self.ld,
                                           phi_price_upper=self.phi_price_upper,
                                           phi_price_lower=self.phi_price_lower,
                                           phi_emp_upper=self.phi_emp_upper,
-                                          phi_emp_lower=self.phi_emp_lower))
+                                          phi_emp_lower=self.phi_emp_lower, 
+                                          max_concurrent=self.max_concurrent))
+                self._pricing_wall_s = time.perf_counter() - t_price
             else:
+                t_price = time.perf_counter()
                 self.agents.select(agent_type=Firm).do("set_prices_rule", phi_price_upper=self.phi_price_upper, 
                                                         phi_price_lower=self.phi_price_lower, 
                                                         ld=self.ld,
@@ -159,6 +168,7 @@ class LegnickModel(mesa.Model):
                                                         phi_emp_upper=self.phi_emp_upper,
                                                         vartheta=self.vartheta,
                                                         phi_emp_lower=self.phi_emp_lower)
+                self._pricing_wall_s = time.perf_counter() - t_price
             
             # households:
             # shuffle once, reuse the same order for every procedure this month start 
@@ -218,6 +228,15 @@ class LegnickModel(mesa.Model):
             # households:
             # adjust w_h depending on income
             self.agents.select(agent_type=Household).do("adjust_reservation_wage")
+
+            # calc time 
+            month_wall_s = time.perf_counter() - self._month_t0
+            self.timings.append({
+                'month': month_num,
+                'month_wall_s': month_wall_s,
+                'pricing_wall_s': self._pricing_wall_s,
+                'other_s': month_wall_s - self._pricing_wall_s
+            })
 
 
 
