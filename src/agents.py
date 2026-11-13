@@ -353,6 +353,11 @@ class LLMFirm(LLMAgent, Firm):
         p_f_upperbar = phi_price_upper * mc_f
         prompt = build_price_prompt(i_f, p_f, mc_f, demand, self.p_f_history, self.demand_history,
                                     self.i_f_history, i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
+
+        price_hist = list(self.p_f_history) # save copy of history before its appended to for prompt log 
+        inv_hist = list(self.i_f_history)
+        demand_hist = list(self.demand_history)
+
         start = time.perf_counter()
         response = await self.llm.agenerate(prompt, response_format=PRICE_RESPONSE_FORMAT)
         elapsed = time.perf_counter() - start
@@ -365,6 +370,16 @@ class LLMFirm(LLMAgent, Firm):
         self.demand = 0
         self.i_f_history.append(self.i_f)
         self.p_f_history.append(self.p_f)
+        if getattr(self.model, "prompt_log", None) is not None:
+            usage = getattr(response, "usage", None)
+            prompt_tokens = getattr(usage, "prompt_tokens", None)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+            self.model.prompt_log.append({"month": self.model.counter // 21 + 1, "firm_id": self.unique_id, "i_f": i_f,
+            "p_f": p_f, "mc_f": mc_f, "demand": demand, "price_hist": price_hist, "demand_hist": demand_hist, 
+            "inv_hist": inv_hist, "i_f_lowerbar": i_f_lowerbar, "i_f_upperbar": i_f_upperbar, 
+            "p_f_lowerbar": p_f_lowerbar, "p_f_upperbar": p_f_upperbar, "messages": self.llm._build_messages(prompt), 
+            "response": resp_text, "new_price": new_price, "ok": ok, "elapsed": elapsed, 
+            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens})
         return new_price, ok
 
 async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,

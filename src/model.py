@@ -62,7 +62,7 @@ class LegnickModel(mesa.Model):
     
     def __init__(self, n_households, n_firms, seed, alpha, n, ld, chi, gamma, delta, phi_emp_upper, phi_emp_lower, phi_price_lower, 
                 phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode, llm_model=None, llm_api_base=None, 
-                llm_temperature=0.3, llm_backend="direct", max_concurrent=12):
+                llm_temperature=0.3, llm_backend="direct", max_concurrent=12, log_prompts=False):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -89,6 +89,7 @@ class LegnickModel(mesa.Model):
             raise ValueError("pricing_mode='llm' requires llm_model (e.g. 'ollama/llama3.2:3b')")
         self.timings = []
         self.max_concurrent = max_concurrent
+        self.prompt_log = [] if log_prompts else None
 
         # data collection
         self.datacollector = mesa.DataCollector(
