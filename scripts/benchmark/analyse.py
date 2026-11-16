@@ -5,8 +5,8 @@ Reads every model folder in --results-dir (written by replay.py via cluster/benc
 and writes to --out-dir:
   summary_table.csv / .md   one row per model: reliability, direction, consistency, agreement, speed
   by_stratum.csv            what each model did in each economic situation
-  quality_vs_speed.png      wrong-direction rate against seconds per simulated month
-  wrong_dir_by_stratum.png  wrong-direction rate where the rules call for raising
+  quality_vs_speed.pdf      wrong-direction rate against seconds per simulated month
+  wrong_dir_by_stratum.pdf  wrong-direction rate where the rules call for raising
 
 Run from the repository root:
   python scripts/benchmark/analyse.py
@@ -258,8 +258,8 @@ def main():
         f.write(to_markdown(readable) + "\n\n(rates in %; agree_with_baseline for the baseline "
                 "itself is its leave-one-out self-agreement)\n")
 
-    plot_quality_vs_speed(summary, colours, os.path.join(args.out_dir, "quality_vs_speed.png"))
-    plot_wrong_dir_by_stratum(strata, colours, order, os.path.join(args.out_dir, "wrong_dir_by_stratum.png"))
+    plot_quality_vs_speed(summary, colours, os.path.join(args.out_dir, "quality_vs_speed.pdf"))
+    plot_wrong_dir_by_stratum(strata, colours, order, os.path.join(args.out_dir, "wrong_dir_by_stratum.pdf"))
 
     print(readable[["wrong_dir_rate", "repeat_consistency", "agree_with_baseline", "error_rate",
                     "s_per_month", "hours_for_7000_months"]].to_string())
