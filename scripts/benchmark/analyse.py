@@ -162,7 +162,7 @@ def plot_quality_vs_speed(summary, colours, path):
         ranked = summary.sort_values("s_per_month")
         for i, (label, row) in enumerate(ranked.iterrows()):
             ax.scatter(row["s_per_month"], row["wrong_dir_rate"] * 100, s=90, color=colours[label],
-                       edgecolor="#fcfcfb", linewidth=2, zorder=3)
+                       edgecolor="#fcfcfb", linewidth=2, zorder=3, clip_on=False)   # points at 0% stay visible
             ax.annotate(label, (row["s_per_month"], row["wrong_dir_rate"] * 100),
                         xytext=(8, 8 if i % 2 == 0 else -14), textcoords="offset points",
                         fontsize=9, color="#52514e")
@@ -221,7 +221,11 @@ def main():
     prompts = pd.read_json(args.prompt_set, lines=True)
     labels = sorted(os.listdir(args.results_dir))
     order = [args.baseline] + [m for m in labels if m != args.baseline]   # baseline first
-    colours = {m: PALETTE[i % len(PALETTE)] for i, m in enumerate(order)}
+    # each model keeps the same colour in every run; new models take the next unused colour
+    fixed = {"llama70b": PALETTE[0], "qwen38_27b": PALETTE[1], "qwen38_27b-fp8": PALETTE[2],
+             "qwen3_30b_a3b": PALETTE[3], "qwen3_32b_awq": PALETTE[4], "gemma4_31b_q4": PALETTE[5]}
+    spare = [c for c in PALETTE if c not in fixed.values()]
+    colours = {m: fixed.get(m) or spare.pop(0) for m in order}
 
     # baseline's usual answer per prompt, and how often it agrees with itself
     q_base, _, _ = load_model(args.results_dir, args.baseline)
