@@ -41,18 +41,22 @@ def main():
     p.add_argument("--variant", required=True, choices=sorted(PROMPT_BUILDERS))
     p.add_argument("--recording", default="diagnostics/benchmark/recording/vllm_60m_prompts.jsonl")
     p.add_argument("--sets-dir", default="diagnostics/benchmark/prompt_sets")
+    p.add_argument("--sets", nargs="*", default=SET_FILES,
+                    help="which set files in --sets-dir to render (default: quality and throughput)")
+    p.add_argument("--self-inputs", action="store_true",
+                    help="take the prompt inputs from each recors itself rather than from --recording")
     args = p.parse_args()
 
     build = PROMPT_BUILDERS[args.variant]
-    original = {(r["month"], r["firm_id"]): r for r in read_jsonl(args.recording)}
+    original = {} if args.self_inputs else {(r["month"], r["firm_id"]): r for r in read_jsonl(args.recording)}
     out_dir = os.path.join(args.sets_dir, args.variant)
     os.makedirs(out_dir, exist_ok=True)
 
-    for name in SET_FILES:
+    for name in args.sets:
         selected = read_jsonl(os.path.join(args.sets_dir, name))
         rendered, matches = [], 0
         for r in selected:
-            orig = original[(r["month"], r["firm_id"])]                          
+            orig = r if args.self_inputs else original[(r["month"], r["firm_id"])]                          
             prompt = build(**prompt_inputs(orig))                     
             new = dict(r)                       
             new["messages"] = [{"role": "system", "content": ""},
