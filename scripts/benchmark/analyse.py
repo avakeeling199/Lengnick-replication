@@ -148,6 +148,9 @@ def by_stratum(q, label):
 
 # categorical palette, assigned in fixed model order (validated colour-blind-safe order)
 PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+# fixed colour per model, shared by every figure (also imported by compare_prompts.py)
+MODEL_COLOURS = {"llama70b": PALETTE[0], "qwen38_27b": PALETTE[1], "qwen38_27b-fp8": PALETTE[2],
+                 "qwen3_30b_a3b": PALETTE[3], "qwen3_32b_awq": PALETTE[4], "gemma4_31b_q4": PALETTE[6]}
 STYLE = {"figure.facecolor": "#fcfcfb", "axes.facecolor": "#fcfcfb", "savefig.facecolor": "#fcfcfb",
          "axes.edgecolor": "#e4e3df", "axes.labelcolor": "#52514e", "xtick.color": "#52514e",
          "ytick.color": "#52514e", "text.color": "#0b0b0b", "font.size": 10, "axes.titlesize": 11,
@@ -222,10 +225,8 @@ def main():
     labels = sorted(os.listdir(args.results_dir))
     order = [args.baseline] + [m for m in labels if m != args.baseline]   # baseline first
     # each model keeps the same colour in every run; new models take the next unused colour
-    fixed = {"llama70b": PALETTE[0], "qwen38_27b": PALETTE[1], "qwen38_27b-fp8": PALETTE[2],
-             "qwen3_30b_a3b": PALETTE[3], "qwen3_32b_awq": PALETTE[4], "gemma4_31b_q4": PALETTE[5]}
-    spare = [c for c in PALETTE if c not in fixed.values()]
-    colours = {m: fixed.get(m) or spare.pop(0) for m in order}
+    spare = [c for c in PALETTE if c not in MODEL_COLOURS.values()]
+    colours = {m: MODEL_COLOURS.get(m) or spare.pop(0) for m in order}
 
     # baseline's usual answer per prompt, and how often it agrees with itself
     q_base, _, _ = load_model(args.results_dir, args.baseline)

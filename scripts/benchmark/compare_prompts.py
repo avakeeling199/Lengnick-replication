@@ -5,6 +5,7 @@ Reads diagnostics/benchmark/results/<prompt>/<model>/ (quality.csv, throughput.c
 overstock.csv when present) and writes to --out-dir:
   prompt_comparison.csv / .md   one row per model x prompt
   prompt_comparison.pdf         key behaviours by model, one bar per prompt
+  quality_vs_speed_by_prompt.pdf  one quality-vs-speed panel per prompt, shared axes
 
 Behaviour columns (shares of answers, %):
   under_raise / under_lower   understocked with room to raise: raised / cut the price
@@ -27,13 +28,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from analyse import add_prompt_info, classify, repeat_consistency, STYLE
+from analyse import add_prompt_info, classify, repeat_consistency, STYLE, MODEL_COLOURS
 
 PROMPTS = ["strict", "rule_context", "goal_state"]
 MODELS = ["llama70b", "qwen38_27b-fp8", "gemma4_31b_q4", "qwen3_32b_awq", "qwen3_30b_a3b"]
 PROMPT_COLOURS = {"strict": "#2a78d6", "rule_context": "#eb6834", "goal_state": "#1baf7a"}
 PCT = ["under_raise", "under_lower", "under_ceiling_raise", "within_hold", "over_lower",
-       "consistency", "median_move", "error_rate"]
+       "opposite_rule", "consistency", "median_move", "error_rate"]
 
 
 def answered(q):
@@ -48,7 +49,10 @@ def behaviour(q):
     under_ceiling = ok[ok["stratum"].str.contains("|below|ceiling", regex=False)]
     within = ok[ok["stratum"].str.contains("|within|", regex=False)]
     moved = ok[ok["move"] != "hold"]
+    directional = ok[ok["expected"].isin(["raise", "lower"])]
     return {
+        # same as analyse.py's wrong_dir_rate: moved opposite to the rule where the rule calls for a move
+        "opposite_rule": directional["wrong_dir"].mean(),
         "under_raise": (under["move"] == "raise").mean(),
         "under_lower": (under["move"] == "lower").mean(),
         "under_ceiling_raise": (under_ceiling["move"] == "raise").mean(),
@@ -118,6 +122,34 @@ def plot(table, path):
         plt.close(fig)
 
 
+def plot_quality_vs_speed(table, path):
+    """One 'decision quality vs speed' panel per prompt, on shared axes, one dot per model."""
+    models = [m for m in MODELS if m in table.index.get_level_values("model")]
+    x_max = table["s_per_month"].max() * 1.15
+    with plt.rc_context(STYLE):
+        fig, axes = plt.subplots(1, len(PROMPTS), figsize=(13, 4.6), sharex=True, sharey=True)
+        for ax, prompt in zip(axes, PROMPTS):
+            for m in models:
+                if (m, prompt) not in table.index:
+                    continue
+                row = table.loc[(m, prompt)]
+                ax.scatter(row["s_per_month"], row["opposite_rule"], s=90, color=MODEL_COLOURS[m],
+                           edgecolor="#fcfcfb", linewidth=2, zorder=3, clip_on=False, label=m)
+            ax.set_xlim(0, x_max)
+            ax.set_ylim(0, 100)
+            ax.set_title(prompt, loc="left")
+            ax.set_xlabel("Seconds per simulated month")
+        axes[0].set_ylabel("Moves opposite to the rule (%)")
+        # one legend for the whole figure, below the panels (a legend inside one panel squashes the layout)
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="lower center", ncol=len(models), frameon=False)
+        fig.suptitle("Decision quality vs speed by prompt (bottom-left = rule-consistent and fast)",
+                     fontweight="bold", x=0.01, ha="left")
+        fig.tight_layout(rect=(0, 0.08, 1, 1))     # leave room at the bottom for the legend
+        fig.savefig(path)
+        plt.close(fig)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--results-root", default="diagnostics/benchmark/results")
@@ -149,6 +181,7 @@ def main():
     with open(os.path.join(args.out_dir, "prompt_comparison.md"), "w") as f:
         f.write(to_markdown(table) + "\n")
     plot(table, os.path.join(args.out_dir, "prompt_comparison.pdf"))
+    plot_quality_vs_speed(table, os.path.join(args.out_dir, "quality_vs_speed_by_prompt.pdf"))
 
     show = ["under_raise", "under_lower", "under_ceiling_raise", "within_hold", "over_lower",
             "consistency", "median_move", "s_per_month"]
