@@ -22,6 +22,7 @@ Writes to --out-dir:
   inventory_contrasts.csv   one row per model x prompt x contrast, with 95% CI
   inventory_logit.csv       one row per model x prompt x outcome (raise, cut): AME with 95% CI
   jitter.csv                one row per model x prompt
+  inventory_<prompt>.pdf    contrasts and logit effects for one prompt (same axes in every file)
 
 Run from the repository root:
   python scripts/benchmark/inventory_response.py
@@ -30,11 +31,14 @@ import argparse
 import os
 import warnings
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from analyse import add_prompt_info, classify
+from analyse import add_prompt_info, classify, STYLE, MODEL_COLOURS
 
 PROMPTS = ["strict", "rule_context", "goal_state"]
 MODELS = ["llama70b", "qwen38_27b-fp8", "gemma4_31b_q4", "qwen3_32b_awq", "qwen3_30b_a3b"]
@@ -142,6 +146,73 @@ def logit_inventory_effect(q):
     return out
 
 
+PROMPT_LABELS = {"strict": "Strict rule", "rule_context": "Rule as context", "goal_state": "Goal + state"}
+MODEL_LABELS = {"llama70b": "Llama 3.3 70B", "qwen38_27b-fp8": "Qwen3.8 27B", "gemma4_31b_q4": "Gemma 4 31B",
+                "qwen3_32b_awq": "Qwen3 32B", "qwen3_30b_a3b": "Qwen3 30B MoE"}
+
+
+def plot_inventory(c, l, out_dir):
+    """One PDF per prompt: raw contrasts (top) and logit effects (bottom), estimate with 95% interval."""
+    panels = [
+        ("contrast", "raise", "Raised when understocked minus\nraised when overstocked (pp)"),
+        ("contrast", "cut", "Cut when overstocked minus\ncut when understocked (pp)"),
+        ("logit", "raise", "Higher inventory, other inputs fixed:\nchange in P(raise) (pp)"),
+        ("logit", "cut", "Higher inventory, other inputs fixed:\nchange in P(cut) (pp)"),
+    ]
+
+    def rows(kind, which):
+        if kind == "contrast":
+            d = c[c["contrast"] == which].copy()
+            d["est"] = d["estimate"]
+        else:
+            d = l[(l["outcome"] == which) & (l["note"] == "converged")].copy()
+            d["est"] = d["ame_per_sd_log_inventory"]
+        d = d.dropna(subset=["est"])
+        d[["est", "ci_low", "ci_high"]] *= 100
+        return d
+
+    # one x-range per panel, shared by every prompt's file so they compare directly
+    limits = {}
+    for kind, which, _ in panels:
+        d = rows(kind, which)
+        lo, hi = min(0, d["ci_low"].min()), max(0, d["ci_high"].max())
+        pad = 0.05 * (hi - lo or 1)
+        limits[(kind, which)] = (lo - pad, hi + pad)
+
+    for prompt, plabel in PROMPT_LABELS.items():
+        with plt.rc_context(STYLE):
+            fig, axes = plt.subplots(2, 2, figsize=(11, 6.4))
+            for ax, (kind, which, title) in zip(axes.flat, panels):
+                d = rows(kind, which)
+                d = d[d["prompt"] == prompt]
+                ax.axvline(0, color="#52514e", lw=1)
+                for i, model in enumerate(MODELS):
+                    y = len(MODELS) - 1 - i
+                    r = d[d["model"] == model]
+                    if r.empty:
+                        ax.text(limits[(kind, which)][0], y, "  not estimable", va="center",
+                                fontsize=8, color="#52514e", style="italic")
+                        continue
+                    r = r.iloc[0]
+                    ax.plot([r["ci_low"], r["ci_high"]], [y, y], color=MODEL_COLOURS[model], lw=2)
+                    ax.plot(r["est"], y, "o", color=MODEL_COLOURS[model], ms=7, mec="#fcfcfb", mew=1.5)
+                ax.set_yticks(range(len(MODELS)))
+                ax.set_yticklabels([MODEL_LABELS[m] for m in reversed(MODELS)])
+                ax.set_xlim(*limits[(kind, which)])
+                ax.set_ylim(-0.6, len(MODELS) - 0.4)
+                ax.grid(axis="y", visible=False)
+                ax.set_title(title, loc="left", fontsize=10)
+            fig.suptitle(f"Response to inventory, {plabel} prompt (dots = estimate, lines = 95% interval)",
+                         fontweight="bold", x=0.01, ha="left")
+            fig.text(0.01, 0.01,
+                     "Top: raw contrasts, bootstrapped over situations (103 understocked, 67 overstocked). "
+                     "Bottom: multinomial logit on all prompt inputs, per +1 SD log inventory, "
+                     "SEs clustered by situation.", fontsize=8, color="#52514e")
+            fig.tight_layout(rect=(0, 0.04, 1, 1))
+            fig.savefig(os.path.join(out_dir, f"inventory_{prompt}.pdf"))
+            plt.close(fig)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--results-root", default="diagnostics/benchmark/results")
@@ -189,6 +260,7 @@ def main():
     c.to_csv(os.path.join(args.out_dir, "inventory_contrasts.csv"), index=False)
     l.to_csv(os.path.join(args.out_dir, "inventory_logit.csv"), index=False)
     j.to_csv(os.path.join(args.out_dir, "jitter.csv"), index=False)
+    plot_inventory(c, l, args.out_dir)
 
     pd.set_option("display.width", 200)
     show = c[["model", "prompt", "contrast", "estimate", "ci_low", "ci_high"]].copy()
