@@ -2,12 +2,17 @@ import argparse
 import os
 import time
 import pickle 
+import json
 
 import pandas as pd
 
 from src.model import LegnickModel
 from src.config import PARAMS
 
+def write_prompt_log(path, records):
+    with open(path, 'w') as f: 
+        for record in records:
+            f.write(json.dumps(record, default=float) + "\n")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,6 +40,9 @@ def main():
                         help='max number of concurrent requests that can be sent to llm (default=12)')
     parser.add_argument('--timings', type=str, default=None,
                         help='PATH you would like the timings to be saved to')
+    parser.add_argument('--prompt-log', type=str, default=None,
+                        help='where you want the prompt log to save to. If not included \
+                        the log wont be saved')
     args = parser.parse_args()
     if args.max_concurrent < 1:
         parser.error('--max-concurrent must be at least 1')
@@ -49,6 +57,10 @@ def main():
         timings_dir = os.path.dirname(args.timings)
         if timings_dir:
             os.makedirs(timings_dir, exist_ok=True)
+    if args.prompt_log:
+        prompt_log_dir = os.path.dirname(args.prompt_log)
+        if prompt_log_dir:
+            os.makedirs(prompt_log_dir, exist_ok=True)
 
     steps = args.months * 21
     if args.resume_from:
@@ -68,6 +80,7 @@ def main():
         model_params['llm_temperature'] = args.llm_temperature
         model_params['llm_api_base'] = args.llm_api_base
         model_params['max_concurrent'] = args.max_concurrent
+        model_params['log_prompts'] = args.prompt_log is not None
         model = LegnickModel(**model_params)
 
     t0 = time.time()
@@ -86,6 +99,8 @@ def main():
                 pd.DataFrame(model.timings).to_csv(args.timings, index=False)
             with open(f"diagnostics/checkpoint_seed{args.seed}.pkl", 'wb') as f:
                 pickle.dump(model, f)
+            if args.prompt_log:
+                write_prompt_log(args.prompt_log, model.prompt_log)
 
     data = model.datacollector.get_model_vars_dataframe()
     data.to_csv(args.out)
@@ -96,6 +111,9 @@ def main():
     pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
     if args.timings:
         pd.DataFrame(model.timings).to_csv(args.timings, index=False)
+
+    if args.prompt_log:
+        write_prompt_log(args.prompt_log, model.prompt_log)
 
     print(f"[seed {args.seed}] DONE in {time.time() - t0:.0f}s, "
         f"wrote {args.out} and {args.firm_snapshots}", flush=True)

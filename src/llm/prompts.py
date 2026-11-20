@@ -14,6 +14,68 @@ PRICE_RESPONSE_FORMAT = {
     },
 }
 
+GOAL_AND_MARKET = (
+    "You run a firm that produces and sells one good in a simple closed economy. "
+    "Each month you set the price of your good. Your goal is to keep the firm "
+    "profitable over the long run.\n\n"
+    "How your market works: your workers produce goods each month, and goods you "
+    "do not sell stay in your warehouse as inventory. Households buy from the firms "
+    "they are connected to and may switch to firms that charge lower prices. "
+    "Marginal cost is what it costs you to produce one more unit this month.\n\n"
+    "Changing your price is not free in practice: relabeling and catalogue updates "
+    "take effort, and customers who see your price move around too much lose trust "
+    "and shop elsewhere.\n\n"
+)
+
+RESPONSE_INSTRUCTIONS = (
+    "Decide your price for next month. Respond ONLY with JSON in this exact schema:\n"
+    '{"action": "hold" | "raise" | "lower", "new_price": <float>, '
+    '"reasoning": "<one_sentence>"}\n'
+    'If action is "hold", set new_price equal to the current price.'
+)
+
+def _state_and_history(i_f, p_f, mc_f, demand, price_history, demand_history, inventory_history):
+    """The firm's current numbers and recent history, with no advice on how to use them."""
+    text = (
+        "Current state:\n"
+        f"- Inventory: {i_f}\n"
+        f"- Current price: {p_f}\n"
+        f"- Marginal cost this month: {mc_f:.2f}\n"
+        f"- Units sold last month: {demand}\n"
+    )
+    if price_history or demand_history or inventory_history:
+        text += (
+            "\nRecent history (oldest to most recent, before this month):\n"
+            f"- Prices: {list(price_history or [])}\n"
+            f"- Units sold: {list(demand_history or [])}\n"
+            f"- Inventory: {list(inventory_history or [])}\n"
+        )
+    return text
+
+def build_goal_state_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_history=None,
+                            inventory_history=None, i_f_lowerbar=None, i_f_upperbar=None,
+                            p_f_lowerbar=None, p_f_upperbar=None):
+    """Goal and facts only: no decision rule, no bands, no advice."""
+    return (GOAL_AND_MARKET
+            + _state_and_history(i_f, p_f, mc_f, demand, price_history, demand_history, inventory_history)
+            + "\n" + RESPONSE_INSTRUCTIONS)
+    
+def build_rule_context_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_history=None,
+                              inventory_history=None, i_f_lowerbar=None, i_f_upperbar=None,
+                              p_f_lowerbar=None, p_f_upperbar=None):
+    """Goal and facts, plus the rule described as what other firms commonly do (optional)."""
+    context = (
+        "Context: many firms in this economy use a simple rule of thumb. They raise "
+        f"their price when inventory falls below {i_f_lowerbar:.1f} units (a quarter of "
+        f"last month's sales) and lower it when inventory exceeds {i_f_upperbar:.1f} units "
+        f"(one month of sales), keeping their price between {p_f_lowerbar:.2f} and "
+        f"{p_f_upperbar:.2f} (1.025 to 1.15 times marginal cost). You may follow this "
+        "rule, adapt it, or ignore it if you think a different price serves your goal "
+        "better.\n\n"
+    )
+    return (GOAL_AND_MARKET + context
+            + _state_and_history(i_f, p_f, mc_f, demand, price_history, demand_history, inventory_history)
+            + "\n" + RESPONSE_INSTRUCTIONS)
 
 def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_history=None,
                         inventory_history=None, i_f_lowerbar=None, i_f_upperbar=None,
@@ -95,3 +157,9 @@ def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_histor
         '"reasoning": "<one_sentence>"}\n'
         'If action is "hold", set new_price equal to the current price.'
     )
+
+PROMPT_BUILDERS = {
+    "strict": build_price_prompt,
+    "rule_context": build_rule_context_prompt,
+    "goal_state": build_goal_state_prompt,
+}
