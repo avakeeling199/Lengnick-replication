@@ -32,10 +32,8 @@ figs/
 # logs
 l
 
-diagnostics/*.csv
+diagnostics/
 
-diagnostics/*.pkl
-diagnostics/*.png
 *.log
 *.out
 test*.csv

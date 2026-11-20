@@ -26,7 +26,8 @@ import pandas as pd
 from analyse import add_prompt_info, classify, STYLE, MODEL_COLOURS
 
 PROMPTS = {"goal_state": "Goal + state", "rule_context": "Rule as context"}
-MODELS = {"gemma4_31b_q4": "Gemma 4 31B", "qwen38_27b-fp8": "Qwen3.8 27B", "llama70b": "Llama 3.3 70B"}
+MODELS = {"gemma4_31b_q4": "Gemma 4 31B", "qwen38_27b-fp8": "Qwen3.8 27B", "llama70b": "Llama 3.3 70B",
+          "qwen35_9b": "Qwen3.5 9B", "qwen35_9b_think": "Qwen3.5 9B (thinking)"}
 LOW, HIGH = [0.05, 0.15], [1.5, 2.5]          # clearly below and clearly above the rule's band
 
 

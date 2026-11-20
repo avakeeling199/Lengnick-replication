@@ -31,7 +31,7 @@ import pandas as pd
 from analyse import add_prompt_info, classify, repeat_consistency, STYLE, MODEL_COLOURS
 
 PROMPTS = ["strict", "rule_context", "goal_state"]
-MODELS = ["llama70b", "qwen38_27b-fp8", "gemma4_31b_q4", "qwen3_32b_awq", "qwen3_30b_a3b"]
+MODELS = ["llama70b", "qwen38_27b-fp8", "gemma4_31b_q4", "qwen3_32b_awq", "qwen3_30b_a3b", "qwen35_9b", "qwen35_9b_think"]
 PROMPT_COLOURS = {"strict": "#2a78d6", "rule_context": "#eb6834", "goal_state": "#1baf7a"}
 PCT = ["under_raise", "under_lower", "under_ceiling_raise", "within_hold", "over_lower",
        "opposite_rule", "consistency", "median_move", "error_rate"]

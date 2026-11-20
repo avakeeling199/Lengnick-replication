@@ -41,7 +41,7 @@ import statsmodels.api as sm
 from analyse import add_prompt_info, classify, STYLE, MODEL_COLOURS
 
 PROMPTS = ["strict", "rule_context", "goal_state"]
-MODELS = ["llama70b", "qwen38_27b-fp8", "gemma4_31b_q4", "qwen3_32b_awq", "qwen3_30b_a3b"]
+MODELS = ["llama70b", "qwen38_27b-fp8", "gemma4_31b_q4", "qwen3_32b_awq", "qwen3_30b_a3b", "qwen35_9b", "qwen35_9b_think"]
 FEATURES = ["log_inventory", "log_units_sold", "price", "marginal_cost",
             "d_price", "d_units_sold", "d_inventory", "has_history"]
 
@@ -148,7 +148,7 @@ def logit_inventory_effect(q):
 
 PROMPT_LABELS = {"strict": "Strict rule", "rule_context": "Rule as context", "goal_state": "Goal + state"}
 MODEL_LABELS = {"llama70b": "Llama 3.3 70B", "qwen38_27b-fp8": "Qwen3.8 27B", "gemma4_31b_q4": "Gemma 4 31B",
-                "qwen3_32b_awq": "Qwen3 32B", "qwen3_30b_a3b": "Qwen3 30B MoE"}
+                "qwen3_32b_awq": "Qwen3 32B", "qwen3_30b_a3b": "Qwen3 30B MoE", "qwen35_9b": "Qwen3.5 9B", "qwen35_9b_think": "Qwen3.5 9B (thinking)"}
 
 
 def plot_inventory(c, l, out_dir):

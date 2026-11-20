@@ -18,6 +18,7 @@ def sampling_kwargs(args):
         temperature=args.temperature,
         top_p=args.top_p,
         max_tokens=args.max_tokens,
+        timeout=args.timeout,
         response_format=PRICE_RESPONSE_FORMAT,
         extra_body={"top_k": -1, "repetition_penalty": 1.0},
     )
@@ -34,12 +35,13 @@ async def call_one(client, sem, record, repeat, kwargs, model):
     seed=seed,
     latency_s=None, raw_response=None, finish_reason=None,
     prompt_tokens=None, completion_tokens=None, error=None,
+    thinking_chars=None,
     )
     async with sem:
         t0 = time.perf_counter()
         try:
             resp = await client.chat.completions.create(
-                model=model, messages=record['messages'], seed=seed, timeout=120, **kwargs)
+                model=model, messages=record['messages'], seed=seed, **kwargs)
             # 3. success: fill in what came back
             row['latency_s'] = time.perf_counter() - t0
             choice = resp.choices[0]
@@ -48,7 +50,11 @@ async def call_one(client, sem, record, repeat, kwargs, model):
             usage = getattr(resp, "usage", None)
             row['prompt_tokens'] = getattr(usage, "prompt_tokens", None)
             row['completion_tokens'] = getattr(usage, "completion_tokens", None)
-        except Exception as e: 
+            # thinking models: vLLM's reasoning parser puts the thinking text in a separate field
+            extra = getattr(choice.message, "model_extra", None) or {}
+            thinking = extra.get("reasoning_content") or extra.get("reasoning")
+            row['thinking_chars'] = len(thinking) if thinking else 0
+        except Exception as e:
             #4. failure: record how long it took and what went wrong
             row['latency_s'] = time.perf_counter() - t0
             row['error'] = repr(e)
@@ -137,6 +143,7 @@ def main():
     p.add_argument("--temperature", type=float, default=0.3, help="temperature sent to the LLM")
     p.add_argument("--top-p", type=float, default=0.9)
     p.add_argument("--max-tokens", type=int, default=512)
+    p.add_argument("--timeout", type=float, default=120, help="seconds before a request counts as failed")
     args=p.parse_args()
 
     started = time.strftime("%Y-%m-%d %H:%M:%S")
