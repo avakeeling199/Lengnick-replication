@@ -1,4 +1,3 @@
-import numpy as np
 import mesa
 import statistics
 from src.agents import Household, Firm, aprice_firms, LLMFirm
@@ -62,7 +61,7 @@ class LegnickModel(mesa.Model):
     
     def __init__(self, n_households, n_firms, seed, alpha, n, ld, chi, gamma, delta, phi_emp_upper, phi_emp_lower, phi_price_lower, 
                 phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode, llm_model=None, llm_api_base=None, 
-                llm_temperature=0.3, llm_backend="direct", max_concurrent=12, log_prompts=False):
+                llm_temperature=0.3, llm_backend="direct", max_concurrent=12, log_prompts=False, prompt_variant="strict"):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -90,6 +89,7 @@ class LegnickModel(mesa.Model):
         self.timings = []
         self.max_concurrent = max_concurrent
         self.prompt_log = [] if log_prompts else None
+        self.prompt_variant = prompt_variant
 
         # data collection
         self.datacollector = mesa.DataCollector(

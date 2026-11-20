@@ -1,6 +1,4 @@
-import numpy as np
 import mesa
-import math
 import time
 import asyncio
 from collections import deque
@@ -8,7 +6,7 @@ from src.llm.parsing import parse_price_response
 from mesa_llm.llm_agent import LLMAgent
 from mesa_llm.reasoning.cot import CoTReasoning
 from src.llm.sampling_llm import SamplingModuleLLM
-from src.llm.prompts import build_price_prompt, PRICE_RESPONSE_FORMAT
+from src.llm.prompts import PROMPT_BUILDERS, PRICE_RESPONSE_FORMAT
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -351,8 +349,9 @@ class LLMFirm(LLMAgent, Firm):
         i_f_upperbar = phi_emp_upper * demand
         p_f_lowerbar = phi_price_lower * mc_f
         p_f_upperbar = phi_price_upper * mc_f
-        prompt = build_price_prompt(i_f, p_f, mc_f, demand, self.p_f_history, self.demand_history,
-                                    self.i_f_history, i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
+        build = PROMPT_BUILDERS[getattr(self.model, "prompt_variant", "strict")]
+        prompt = build(i_f, p_f, mc_f, demand, self.p_f_history, self.demand_history,
+                        self.i_f_history, i_f_lowerbar, i_f_upperbar, p_f_lowerbar, p_f_upperbar)
 
         price_hist = list(self.p_f_history) # save copy of history before its appended to for prompt log 
         inv_hist = list(self.i_f_history)
@@ -379,7 +378,7 @@ class LLMFirm(LLMAgent, Firm):
             "inv_hist": inv_hist, "i_f_lowerbar": i_f_lowerbar, "i_f_upperbar": i_f_upperbar, 
             "p_f_lowerbar": p_f_lowerbar, "p_f_upperbar": p_f_upperbar, "messages": self.llm._build_messages(prompt), 
             "response": resp_text, "new_price": new_price, "ok": ok, "elapsed": elapsed, 
-            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens})
+            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "prompt_variant": getattr(self.model, "prompt_variant", "strict")})
         return new_price, ok
 
 async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,

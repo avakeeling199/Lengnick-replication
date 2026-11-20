@@ -8,6 +8,7 @@ import pandas as pd
 
 from src.model import LegnickModel
 from src.config import PARAMS
+from src.llm.prompts import PROMPT_BUILDERS
 
 def write_prompt_log(path, records):
     with open(path, 'w') as f: 
@@ -43,6 +44,8 @@ def main():
     parser.add_argument('--prompt-log', type=str, default=None,
                         help='where you want the prompt log to save to. If not included \
                         the log wont be saved')
+    parser.add_argument('--prompt-variant', choices=sorted(PROMPT_BUILDERS), default="strict", 
+                        help="which pricing prompt LLM firms use (default: strict, the original prompt)")
     args = parser.parse_args()
     if args.max_concurrent < 1:
         parser.error('--max-concurrent must be at least 1')
@@ -81,6 +84,7 @@ def main():
         model_params['llm_api_base'] = args.llm_api_base
         model_params['max_concurrent'] = args.max_concurrent
         model_params['log_prompts'] = args.prompt_log is not None
+        model_params['prompt_variant'] = args.prompt_variant
         model = LegnickModel(**model_params)
 
     t0 = time.time()
