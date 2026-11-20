@@ -30,8 +30,14 @@ def load_model(results_dir, label):
     folder = os.path.join(results_dir, label)
     q = pd.read_csv(os.path.join(folder, "quality.csv"))
     t = pd.read_csv(os.path.join(folder, "throughput.csv"))
-    with open(os.path.join(folder, "startup.csv")) as f:
-        startup_s = float(f.read().strip().split(",")[1])     # file is "startup_s,571"
+    # older runs wrote startup.csv; runs since the mode option write startup_full.csv
+    startup_s = float("nan")
+    for name in ("startup_full.csv", "startup.csv"):
+        path = os.path.join(folder, name)
+        if os.path.exists(path):
+            with open(path) as f:
+                startup_s = float(f.read().strip().split(",")[1])     # file is "startup_s,571"
+            break
     return q, t, startup_s
 
 
@@ -150,7 +156,8 @@ def by_stratum(q, label):
 PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 # fixed colour per model, shared by every figure (also imported by compare_prompts.py)
 MODEL_COLOURS = {"llama70b": PALETTE[0], "qwen38_27b": PALETTE[1], "qwen38_27b-fp8": PALETTE[2],
-                 "qwen3_30b_a3b": PALETTE[3], "qwen3_32b_awq": PALETTE[4], "gemma4_31b_q4": PALETTE[6]}
+                 "qwen3_30b_a3b": PALETTE[3], "qwen3_32b_awq": PALETTE[4], "gemma4_31b_q4": PALETTE[6],
+                 "qwen35_9b": PALETTE[7], "qwen35_9b_think": PALETTE[1]}
 STYLE = {"figure.facecolor": "#fcfcfb", "axes.facecolor": "#fcfcfb", "savefig.facecolor": "#fcfcfb",
          "axes.edgecolor": "#e4e3df", "axes.labelcolor": "#52514e", "xtick.color": "#52514e",
          "ytick.color": "#52514e", "text.color": "#0b0b0b", "font.size": 10, "axes.titlesize": 11,
@@ -222,7 +229,13 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     prompts = pd.read_json(args.prompt_set, lines=True)
-    labels = sorted(os.listdir(args.results_dir))
+    # only models whose quality and throughput runs have both finished
+    labels = sorted(m for m in os.listdir(args.results_dir)
+                    if os.path.exists(os.path.join(args.results_dir, m, "quality.csv"))
+                    and os.path.exists(os.path.join(args.results_dir, m, "throughput.csv")))
+    skipped = sorted(set(os.listdir(args.results_dir)) - set(labels))
+    if skipped:
+        print(f"skipping (results not complete): {', '.join(skipped)}")
     order = [args.baseline] + [m for m in labels if m != args.baseline]   # baseline first
     # each model keeps the same colour in every run; new models take the next unused colour
     spare = [c for c in PALETTE if c not in MODEL_COLOURS.values()]
