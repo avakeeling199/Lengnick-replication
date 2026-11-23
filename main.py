@@ -46,9 +46,14 @@ def main():
                         the log wont be saved')
     parser.add_argument('--prompt-variant', choices=sorted(PROMPT_BUILDERS), default="strict", 
                         help="which pricing prompt LLM firms use (default: strict, the original prompt)")
+    parser.add_argument('--no-price-band', action='store_true',
+                        help='LLM firms price freely: only the >0 and +/-50%% change checks apply '
+                        '(default: moves past the 1.025-1.15 x marginal cost band are blocked)')
     args = parser.parse_args()
     if args.max_concurrent < 1:
         parser.error('--max-concurrent must be at least 1')
+    if args.no_price_band and args.prompt_variant == 'strict':
+        parser.error('--no-price-band contradicts the strict prompt, which tells firms moves past the band are blocked')
 
     out_dir = os.path.dirname(args.out)
     if out_dir:
@@ -85,6 +90,7 @@ def main():
         model_params['max_concurrent'] = args.max_concurrent
         model_params['log_prompts'] = args.prompt_log is not None
         model_params['prompt_variant'] = args.prompt_variant
+        model_params['price_band'] = not args.no_price_band
         model = LegnickModel(**model_params)
 
     t0 = time.time()

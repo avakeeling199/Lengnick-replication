@@ -361,8 +361,11 @@ class LLMFirm(LLMAgent, Firm):
         response = await self.llm.agenerate(prompt, response_format=PRICE_RESPONSE_FORMAT)
         elapsed = time.perf_counter() - start
         resp_text = response.choices[0].message.content
-        new_price, reasoning, ok = parse_price_response(resp_text, current_price=p_f, p_f_lowerbar=p_f_lowerbar,
-                                        p_f_upperbar=p_f_upperbar)
+        band = getattr(self.model, "price_band", True)
+        new_price, reasoning, ok = parse_price_response(
+                                        resp_text, current_price=p_f, 
+                                        p_f_lowerbar=p_f_lowerbar if band else None,
+                                        p_f_upperbar=p_f_upperbar if band else None)
         self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed, i_f, demand))
         self.demand_history.append(demand)
         self.p_f = new_price
@@ -378,7 +381,8 @@ class LLMFirm(LLMAgent, Firm):
             "inv_hist": inv_hist, "i_f_lowerbar": i_f_lowerbar, "i_f_upperbar": i_f_upperbar, 
             "p_f_lowerbar": p_f_lowerbar, "p_f_upperbar": p_f_upperbar, "messages": self.llm._build_messages(prompt), 
             "response": resp_text, "new_price": new_price, "ok": ok, "elapsed": elapsed, 
-            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "prompt_variant": getattr(self.model, "prompt_variant", "strict")})
+            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "prompt_variant": getattr(self.model, 
+            "prompt_variant", "strict"), "price_band": band})
         return new_price, ok
 
 async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
