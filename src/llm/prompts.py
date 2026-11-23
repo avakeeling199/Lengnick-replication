@@ -14,6 +14,22 @@ PRICE_RESPONSE_FORMAT = {
     },
 }
 
+WAGE_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "wage_decision",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["hold", "raise", "lower"]},
+                "new_wage": {"type": "number"},
+                "reasoning": {"type": "string"},
+            },
+            "required": ["action", "new_price", "reasoning"],
+        },
+    },    
+}
+
 GOAL_AND_MARKET = (
     "You run a firm that produces and sells one good in a simple closed economy. "
     "Each month you set the price of your good. Your goal is to keep the firm "
