@@ -70,7 +70,6 @@ def main():
         if prompt_log_dir:
             os.makedirs(prompt_log_dir, exist_ok=True)
 
-    steps = args.months * 21
     if args.resume_from:
         with open(args.resume_from, 'rb') as f:
             model = pickle.load(f)
@@ -93,6 +92,7 @@ def main():
         model_params['price_band'] = not args.no_price_band
         model = LegnickModel(**model_params)
 
+    checkpoint_path = os.path.splitext(args.out)[0] + "_checkpoint.pkl"
     t0 = time.time()
     target_steps = args.months * 21
     remaining_steps = target_steps - model.counter
@@ -107,7 +107,7 @@ def main():
             pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
             if args.timings:
                 pd.DataFrame(model.timings).to_csv(args.timings, index=False)
-            with open(f"diagnostics/checkpoint_seed{args.seed}.pkl", 'wb') as f:
+            with open(checkpoint_path, 'wb') as f:
                 pickle.dump(model, f)
             if args.prompt_log:
                 write_prompt_log(args.prompt_log, model.prompt_log)
@@ -115,7 +115,7 @@ def main():
     data = model.datacollector.get_model_vars_dataframe()
     data.to_csv(args.out)
 
-    with open(f"diagnostics/checkpoint_seed{args.seed}.pkl", 'wb') as f:
+    with open(checkpoint_path, 'wb') as f:
         pickle.dump(model, f)
 
     pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
