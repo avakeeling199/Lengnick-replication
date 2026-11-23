@@ -15,6 +15,12 @@ def write_prompt_log(path, records):
         for record in records:
             f.write(json.dumps(record, default=float) + "\n")
 
+def save_checkpoint(model, path):
+    tmp = path + ".tmp"
+    with open (tmp, 'wb') as f:
+        pickle.dump(model, f)
+    os.replace(tmp, path) # swaps the new file in all at once
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, required=True)
@@ -75,8 +81,13 @@ def main():
             model = pickle.load(f)
         model.max_concurrent = args.max_concurrent
         print(f"Resumed from {args.resume_from} at counter={model.counter}")
-        if args.llm_model:
-            print("all resumed runs will keep their original args. If you want to change this you must restart the simulation")
+        if args.llm_api_base:
+            for firm in model.firms:
+                if hasattr(firm, "llm"):
+                    firm.llm.api_base = args.llm_api_base
+            print(f"LLM requests now go to {args.llm_api_base}")
+        if not args.prompt_log:
+            model.prompt_log = None # stop collecting prompts we wont write out
     else:
         model_params = dict(PARAMS)
         model_params['n_households'] = args.n_households
@@ -107,16 +118,14 @@ def main():
             pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
             if args.timings:
                 pd.DataFrame(model.timings).to_csv(args.timings, index=False)
-            with open(checkpoint_path, 'wb') as f:
-                pickle.dump(model, f)
+            save_checkpoint(model, checkpoint_path)
             if args.prompt_log:
                 write_prompt_log(args.prompt_log, model.prompt_log)
 
     data = model.datacollector.get_model_vars_dataframe()
     data.to_csv(args.out)
 
-    with open(checkpoint_path, 'wb') as f:
-        pickle.dump(model, f)
+    save_checkpoint(model, checkpoint_path)
 
     pd.DataFrame(model.firm_snapshots).to_csv(args.firm_snapshots, index=False)
     if args.timings:
