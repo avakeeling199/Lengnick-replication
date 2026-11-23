@@ -2,7 +2,7 @@ import mesa
 import time
 import asyncio
 from collections import deque
-from src.llm.parsing import parse_price_response
+from src.llm.parsing import parse_llm_response
 from mesa_llm.llm_agent import LLMAgent
 from mesa_llm.reasoning.cot import CoTReasoning
 from src.llm.sampling_llm import SamplingModuleLLM
@@ -362,10 +362,10 @@ class LLMFirm(LLMAgent, Firm):
         elapsed = time.perf_counter() - start
         resp_text = response.choices[0].message.content
         band = getattr(self.model, "price_band", True)
-        new_price, reasoning, ok = parse_price_response(
-                                        resp_text, current_price=p_f, 
-                                        p_f_lowerbar=p_f_lowerbar if band else None,
-                                        p_f_upperbar=p_f_upperbar if band else None)
+        new_price, reasoning, ok = parse_llm_response(
+                                        resp_text, field= "new_price", current_value=p_f, 
+                                        lowerbar=p_f_lowerbar if band else None,
+                                        upperbar=p_f_upperbar if band else None)
         self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed, i_f, demand))
         self.demand_history.append(demand)
         self.p_f = new_price
