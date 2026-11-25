@@ -308,21 +308,19 @@ class Firm(mesa.Agent):
         p_f_upperbar = phi_price_upper * mc_f
         p_f_lowerbar = phi_price_lower * mc_f
 
-        if self.i_f > i_f_upperbar:
-            # if the price is above p_f_upperbar 
-            if self.p_f >= p_f_lowerbar:
-                # lower prices with prob theta 
-                if self.random.random() < theta:
-                    self.p_f = self.p_f * (1 - v)
-                    #self.p_f = max(1, math.floor(self.p_f))
+        if (self.i_f > i_f_upperbar
+                and self.p_f >= p_f_lowerbar 
+                and self.random.random() < theta):
+            # Lower prices with probability theta when inventory is high and price meets the threshold.
+            self.p_f = self.p_f * (1 - v)
+            #self.p_f = max(1, math.floor(self.p_f))
         
-        if self.i_f < i_f_lowerbar:
-            # if the price is lower that p_f_lowerbar
-            if self.p_f <= p_f_upperbar:
-                # up prices with prob theta 
-                if self.random.random() < theta:
-                    self.p_f = self.p_f * (1 + v)
-                    #self.p_f = math.ceil(self.p_f)
+        if (self.i_f < i_f_lowerbar
+                and self.p_f <= p_f_upperbar
+                and self.random.random() < theta):
+            # Up prices with probability theta when inventory is low and price meets the threshold.
+            self.p_f = self.p_f * (1 + v)
+            #self.p_f = math.ceil(self.p_f)
 
         self.demand = 0
 
