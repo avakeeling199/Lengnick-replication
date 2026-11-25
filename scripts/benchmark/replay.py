@@ -79,7 +79,7 @@ def interpret(raw_text, record):
         pass
     
     # 2. what would the simulation have done with that answer? 
-    final_price, final_reasoning, final_ok = parse_llm_response(
+    final_price, final_reasoning, final_ok, final_action = parse_llm_response(
         raw_text, 
         field = "new_price",
         current_value=record['p_f'],

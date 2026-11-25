@@ -1,6 +1,6 @@
 import mesa
 import statistics
-from src.agents import Household, Firm, aprice_firms, LLMFirm
+from src.agents import Household, Firm, arun_firms, LLMFirm
 import asyncio
 import time
 
@@ -154,12 +154,11 @@ class LegnickModel(mesa.Model):
             # set prices
             if self.pricing_mode == "llm":
                 t_price = time.perf_counter()
-                asyncio.run(aprice_firms(self.firms, self.ld,
+                asyncio.run(arun_firms(self.firms, "aset_price", self.max_concurrent, ld=self.ld,
                                           phi_price_upper=self.phi_price_upper,
                                           phi_price_lower=self.phi_price_lower,
                                           phi_emp_upper=self.phi_emp_upper,
-                                          phi_emp_lower=self.phi_emp_lower, 
-                                          max_concurrent=self.max_concurrent))
+                                          phi_emp_lower=self.phi_emp_lower))
                 self._pricing_wall_s = time.perf_counter() - t_price
             else:
                 t_price = time.perf_counter()
@@ -217,12 +216,13 @@ class LegnickModel(mesa.Model):
                     'wage': f.w_f, 'inventory': f.i_f, 'demand': f.demand,
                 }
                 if self.pricing_mode == 'llm' and f.price_log:
-                    _, logged_price, reasoning, ok, elapsed, input_i_f, input_demand = f.price_log[-1]
+                    _, logged_price, reasoning, ok, action, elapsed, input_i_f, input_demand = f.price_log[-1]
                     snapshot['llm_reasoning'] = reasoning
                     snapshot['llm_ok'] = ok
                     snapshot['llm_elapsed'] = elapsed
                     snapshot['llm_input_inventory'] = input_i_f
                     snapshot['llm_input_demand'] = input_demand
+                    snapshot['llm_action'] = action
                 self.firm_snapshots.append(snapshot)
             distribute_all_profits(self)
 
