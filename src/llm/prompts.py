@@ -25,7 +25,7 @@ WAGE_RESPONSE_FORMAT = {
                 "new_wage": {"type": "number"},
                 "reasoning": {"type": "string"},
             },
-            "required": ["action", "new_price", "reasoning"],
+            "required": ["action", "new_wage", "reasoning"],
         },
     },    
 }
@@ -173,6 +173,52 @@ def build_price_prompt(i_f, p_f, mc_f, demand, price_history=None, demand_histor
         '"reasoning": "<one_sentence>"}\n'
         'If action is "hold", set new_price equal to the current price.'
     )
+
+WAGE_GOAL_AND_MARKET = (
+    "You run a firm that produces and sells one good in a simple closed economy. "
+    "Each month you set the wage you pay each of your workers. The same wage applies "
+    "to your current workers and to anyone you hire. Your goal is to keep the firm "
+    "profitable over the long run.\n\n"
+    "How your labour market works: the more workers you employ, the more you can "
+    "produce. When you need more workers you post a vacancy. A job seeker takes your "
+    "vacancy only if your wage is at least their reservation wage, the lowest wage "
+    "they are willing to accept. Employed workers sometimes move to another firm that "
+    "has a vacancy and pays at least as much as you, and workers paid less than their "
+    "reservation wage actively look for a better-paid job. Employed workers raise "
+    "their reservation wage to match their pay; unemployed workers lower theirs over "
+    "time.\n\n"
+    "Wages are your main cost: what you pay each worker determines the cost of every "
+    "unit you produce.\n\n"
+)
+
+WAGE_RESPONSE_INSTRUCTIONS = (
+    "Decide your wage for next month. Respond ONLY with JSON in this exact schema:\n"
+    '{"action": "hold" | "raise" | "lower", "new_wage": <float>, '
+    '"reasoning": "<one_sentence>"}\n'
+    'If action is "hold", set new_wage equal to the current wage.'
+)
+
+def build_wage_prompt(w_f, open_position, months_full, n_workers=None):
+    """Goal, labour-market facts and the rule's inputs only: no rule, thresholds or advice."""
+    if open_position:
+        vacancy = ("- Last month you posted a vacancy and no job seeker accepted it "
+                   "at your current wage.\n")
+    else:
+        vacancy = ("- You have no unfilled vacancy: either you did not need to hire "
+                   "last month, or a job seeker accepted your vacancy.\n")
+    state = (
+        "Current state:\n"
+        f"- Current wage: {w_f:.2f}\n"
+        + vacancy +
+        f"- Months in a row without an unfilled vacancy: {months_full}\n"
+    )
+    if n_workers is not None:
+        state += f"- Workers employed: {n_workers}\n"
+    return WAGE_GOAL_AND_MARKET + state + "\n" + WAGE_RESPONSE_INSTRUCTIONS
+
+WAGE_PROMPT_BUILDERS = {
+    "default": build_wage_prompt,
+}
 
 PROMPT_BUILDERS = {
     "strict": build_price_prompt,
