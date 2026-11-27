@@ -7,7 +7,7 @@ from openai import AsyncOpenAI
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, REPO_ROOT)
 from src.llm.prompts import PRICE_RESPONSE_FORMAT
-from src.llm.parsing import parse_price_response
+from src.llm.parsing import parse_llm_response
 
 def load_prompts(path):
     with open(path) as f:
@@ -79,11 +79,12 @@ def interpret(raw_text, record):
         pass
     
     # 2. what would the simulation have done with that answer? 
-    final_price, final_reasoning, final_ok = parse_price_response(
+    final_price, final_reasoning, final_ok, final_action = parse_llm_response(
         raw_text, 
-        current_price=record['p_f'],
-        p_f_lowerbar=record['p_f_lowerbar'],
-        p_f_upperbar=record['p_f_upperbar'],
+        field = "new_price",
+        current_value=record['p_f'],
+        lowerbar=record['p_f_lowerbar'],
+        upperbar=record['p_f_upperbar'],
     )
     out['final_price'] = final_price
     out['final_reasoning'] = final_reasoning

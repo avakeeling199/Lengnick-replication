@@ -2,11 +2,11 @@ import mesa
 import time
 import asyncio
 from collections import deque
-from src.llm.parsing import parse_price_response
+from src.llm.parsing import parse_llm_response
 from mesa_llm.llm_agent import LLMAgent
 from mesa_llm.reasoning.cot import CoTReasoning
 from src.llm.sampling_llm import SamplingModuleLLM
-from src.llm.prompts import PROMPT_BUILDERS, PRICE_RESPONSE_FORMAT
+from src.llm.prompts import PROMPT_BUILDERS, PRICE_RESPONSE_FORMAT, WAGE_PROMPT_BUILDERS, WAGE_RESPONSE_FORMAT
 
 class Household(mesa.Agent):
     """Household agents"""
@@ -308,21 +308,19 @@ class Firm(mesa.Agent):
         p_f_upperbar = phi_price_upper * mc_f
         p_f_lowerbar = phi_price_lower * mc_f
 
-        if self.i_f > i_f_upperbar:
-            # if the price is above p_f_upperbar 
-            if self.p_f >= p_f_lowerbar:
-                # lower prices with prob theta 
-                if self.random.random() < theta:
-                    self.p_f = self.p_f * (1 - v)
-                    #self.p_f = max(1, math.floor(self.p_f))
+        if (self.i_f > i_f_upperbar
+                and self.p_f >= p_f_lowerbar 
+                and self.random.random() < theta):
+            # Lower prices with probability theta when inventory is high and price meets the threshold.
+            self.p_f = self.p_f * (1 - v)
+            #self.p_f = max(1, math.floor(self.p_f))
         
-        if self.i_f < i_f_lowerbar:
-            # if the price is lower that p_f_lowerbar
-            if self.p_f <= p_f_upperbar:
-                # up prices with prob theta 
-                if self.random.random() < theta:
-                    self.p_f = self.p_f * (1 + v)
-                    #self.p_f = math.ceil(self.p_f)
+        if (self.i_f < i_f_lowerbar
+                and self.p_f <= p_f_upperbar
+                and self.random.random() < theta):
+            # Up prices with probability theta when inventory is low and price meets the threshold.
+            self.p_f = self.p_f * (1 + v)
+            #self.p_f = math.ceil(self.p_f)
 
         self.demand = 0
 
@@ -337,7 +335,7 @@ class LLMFirm(LLMAgent, Firm):
         super().__init__(model=model, reasoning=reasoning, llm_model=llm_model, api_base=api_base)
         #swap in now so that LLMAgent doesnt overwrite
         self.llm = SamplingModuleLLM(llm_model=llm_model, api_base=api_base, temperature=temperature)
-
+        self.wage_log = []
         self.backend = backend
 
     async def aset_price(self, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower):
@@ -362,11 +360,11 @@ class LLMFirm(LLMAgent, Firm):
         elapsed = time.perf_counter() - start
         resp_text = response.choices[0].message.content
         band = getattr(self.model, "price_band", True)
-        new_price, reasoning, ok = parse_price_response(
-                                        resp_text, current_price=p_f, 
-                                        p_f_lowerbar=p_f_lowerbar if band else None,
-                                        p_f_upperbar=p_f_upperbar if band else None)
-        self.price_log.append((self.model.counter, new_price, reasoning, ok, elapsed, i_f, demand))
+        new_price, reasoning, ok, action = parse_llm_response(
+                                        resp_text, field= "new_price", current_value=p_f, 
+                                        lowerbar=p_f_lowerbar if band else None,
+                                        upperbar=p_f_upperbar if band else None)
+        self.price_log.append((self.model.counter, new_price, reasoning, ok, action, elapsed, i_f, demand))
         self.demand_history.append(demand)
         self.p_f = new_price
         self.demand = 0
@@ -385,10 +383,53 @@ class LLMFirm(LLMAgent, Firm):
             "prompt_variant", "strict"), "price_band": band})
         return new_price, ok
 
-async def aprice_firms(firms, ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower,
-                max_concurrent):
+    async def aset_wage(self, max_change_frac=0.5):
+        if self.w_f <= 0:
+            self.w_f = 1.0
+        w_f = self.w_f
+        open_position = self.open_position
+        months_full = self.months_full
+
+        build = WAGE_PROMPT_BUILDERS[getattr(self.model, "wage_prompt_variant", "default")]
+        prompt = build(w_f, open_position, months_full)
+
+        start = time.perf_counter()
+        response = await self.llm.agenerate(prompt, response_format=WAGE_RESPONSE_FORMAT)
+        elapsed = time.perf_counter() - start
+        resp_text = response.choices[0].message.content
+
+        new_wage, reasoning, ok, action = parse_llm_response(resp_text, current_value=w_f, field="new_wage",
+                                                    max_change_frac=max_change_frac)
+
+        self.w_f = new_wage
+        self.wage_log.append({"step": self.model.counter, "new_wage": new_wage, "reasoning": reasoning, 
+                            "ok": ok, "elapsed": elapsed, "w_f": w_f, "open_position": open_position, 
+                            "months_full": months_full, "action": action})
+
+        # unlike the rule, only a vacancy resets this (the rule also resets after a wage cut),
+        # so it matches the prompt's "months in a row without an unfilled vacancy"
+
+        if open_position:
+            self.months_full = 0
+        else: 
+            self.months_full += 1
+
+        if getattr(self.model, "wage_prompt_log", None) is not None:
+            usage = getattr(response, "usage", None)
+            prompt_tokens = getattr(usage, "prompt_tokens", None)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+            self.model.wage_prompt_log.append({"month": self.model.counter // 21 + 1, "firm_id": self.unique_id, 
+            "w_f": w_f, "open_position": open_position, "months_full": months_full, "messages": self.llm._build_messages(prompt), 
+            "response": resp_text, "new_wage": new_wage, "ok": ok, "action": action, "elapsed": elapsed, 
+            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "prompt_variant": getattr(self.model, 
+            "wage_prompt_variant", "default")})
+
+        return new_wage, ok
+
+async def arun_firms(firms, method, max_concurrent, **kwargs):
+    """await firm.<<method>(**kwargs) for every firm, at most max_concurrent at a time."""
     sem = asyncio.Semaphore(max_concurrent)
-    async def price_one(firm):
-        async with sem: 
-            return await firm.aset_price(ld, phi_price_upper, phi_price_lower, phi_emp_upper, phi_emp_lower)
-    return await asyncio.gather(*(price_one(f) for f in firms))
+    async def run_one(firm):
+        async with sem:
+            return await getattr(firm, method)(**kwargs)
+    return await asyncio.gather(*(run_one(f) for f in firms))

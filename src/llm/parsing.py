@@ -1,54 +1,41 @@
 import json 
 
-def parse_price_response(raw_text, current_price, max_change_frac=0.5,
-                          p_f_lowerbar=None, p_f_upperbar=None):
+def parse_llm_response(raw_text, current_value, field, max_change_frac=0.5, lowerbar=None, upperbar=None):
     """
-    Parse and validate an LLm price response.
-
-    Falls back to 'current_price' (no change) on any failure: malformed JSON
-    missing keys, wrong types, non-positive prices, or implausible jumps.
-    If p_f_lowerbar/p_f_upperbar are given, a move is only blocked when it
-    would push price further past a boundary the current price has already
-    reached (mirrors the directional gate the rule-based pricer enforces:
-    only cut further once price is still >= the floor, only raise further
-    once price is still <= the ceiling). This still stops runaway drift far
-    from cost, but -- unlike a hard clamp -- lets price overshoot the band
-    and later correct, instead of pinning it to the edge every month.
-    Returns (new_price, reasoning, ok) so callers can log what happened
+    Parse and validate an LLM response
     """
     try:
         parsed = json.loads(raw_text)
         action = str(parsed.get("action", "")).lower()
-        new_price = float(parsed["new_price"])
+        new_value = float(parsed[field])
         reasoning = str(parsed.get("reasoning", ""))
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
-        return current_price, f"PARSE_FAILURE: {raw_text!r}", False
+        return current_value, f"PARSE_FAILURE: {raw_text!r}", False, None
 
-    return validate_price(action, new_price, reasoning, current_price, max_change_frac, 
-                        p_f_lowerbar, p_f_upperbar)
-    
+    return validate_decision(action, new_value, reasoning, current_value, max_change_frac, 
+                        lowerbar, upperbar)
 
-def validate_price(action, new_price, reasoning, current_price, max_change_frac=0.5,
-                    p_f_lowerbar=None, p_f_upperbar=None):
+def validate_decision(action, new_value, reasoning, current_value, max_change_frac=0.5,
+                    lowerbar=None, upperbar=None):
     """ 
-    applies the pricing guards to an already parsed decision and returns (new_price, reasoning, ok)
+    applies the pricing guards to an already parsed decision and returns (new_value, reasoning, ok, action)
     """
     if action == "hold":
-        return current_price, reasoning, True
+        return current_value, reasoning, True, action
 
-    if new_price <= 0:
-        return current_price, f"REJECTED (non-positive price): {new_price}", False
+    if new_value <= 0:
+        return current_value, f"REJECTED (non-positive value): {new_value}", False, action
 
-    lower = current_price * (1 - max_change_frac)
-    upper = current_price * (1 + max_change_frac)
-    if not (lower <= new_price <= upper):
-        return current_price, f"REJECTED (implausible jump to {new_price}): {reasoning}", False
+    lower = current_value * (1 - max_change_frac)
+    upper = current_value * (1 + max_change_frac)
+    if not (lower <= new_value <= upper):
+        return current_value, f"REJECTED (implausible jump to {new_value}): {reasoning}", False, action
 
-    if p_f_lowerbar is not None and new_price < current_price and current_price <= p_f_lowerbar:
-        reasoning = f"{reasoning} [blocked further cut below floor {p_f_lowerbar:.2f}; held at {current_price:.2f}]"
-        new_price = current_price
-    elif p_f_upperbar is not None and new_price > current_price and current_price >= p_f_upperbar:
-        reasoning = f"{reasoning} [blocked further rise above ceiling {p_f_upperbar:.2f}; held at {current_price:.2f}]"
-        new_price = current_price
+    if lowerbar is not None and new_value < current_value and current_value <= lowerbar:
+        reasoning = f"{reasoning} [blocked further cut below floor {lowerbar:.2f}; held at {current_value:.2f}]"
+        new_value = current_value
+    elif upperbar is not None and new_value > current_value and current_value >= upperbar:
+        reasoning = f"{reasoning} [blocked further rise above ceiling {upperbar:.2f}; held at {current_value:.2f}]"
+        new_value = current_value
 
-    return new_price, reasoning, True
+    return new_value, reasoning, True, action
