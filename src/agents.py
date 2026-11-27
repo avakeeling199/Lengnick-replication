@@ -418,9 +418,9 @@ class LLMFirm(LLMAgent, Firm):
             usage = getattr(response, "usage", None)
             prompt_tokens = getattr(usage, "prompt_tokens", None)
             completion_tokens = getattr(usage, "completion_tokens", None)
-            self.model.wage_prompt_log.append({"month": self.model.counter // 21 + 1, "firm_id": self.unique_id,
+            self.model.wage_prompt_log.append({"month": self.model.counter // 21 + 1, "firm_id": self.unique_id, 
             "w_f": w_f, "open_position": open_position, "months_full": months_full, "messages": self.llm._build_messages(prompt), 
-            "response": resp_text, "new_wage": new_wage, "ok": ok, "elapsed": elapsed, 
+            "response": resp_text, "new_wage": new_wage, "ok": ok, "action": action, "elapsed": elapsed, 
             "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "prompt_variant": getattr(self.model, 
             "wage_prompt_variant", "default")})
 

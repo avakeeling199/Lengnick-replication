@@ -1,14 +1,14 @@
 import argparse
-import os
-import time
-import pickle 
 import json
+import os
+import pickle
+import time
 
 import pandas as pd
 
 from src.model import LegnickModel
 from src.config import PARAMS
-from src.llm.prompts import PROMPT_BUILDERS
+from src.llm.prompts import PROMPT_BUILDERS, WAGE_PROMPT_BUILDERS
 
 def write_prompt_log(path, records):
     with open(path, 'w') as f: 
@@ -20,6 +20,12 @@ def save_checkpoint(model, path):
     with open (tmp, 'wb') as f:
         pickle.dump(model, f)
     os.replace(tmp, path) # swaps the new file in all at once
+
+def ensure_parent_dir(path):
+    if path:
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -40,7 +46,7 @@ def main():
                         help="URL of the LLM server, e.g. http://localhost:11434 for local Ollama " \
                         "or http://<node>:11434 on the cluster (default: LiteLLM picks based on the model)")
     parser.add_argument('--llm-temperature', type=float, default=0.3,
-                        help='sampling temperature for LLM pricing calls (default=0.3)')
+                        help='sampling temperature for LLM calls (default=0.3)')
     parser.add_argument('--resume-from', type=str, default=None,
                         help='path to a checkpoint .pkl to resume from')
     parser.add_argument('--max-concurrent', type=int, default=12, 
@@ -55,26 +61,32 @@ def main():
     parser.add_argument('--no-price-band', action='store_true',
                         help='LLM firms price freely: only the >0 and +/-50%% change checks apply '
                         '(default: moves past the 1.025-1.15 x marginal cost band are blocked)')
+    parser.add_argument('--wage-mode', choices=['rule', 'llm'], default='rule',
+                        help='whether firms use llm or rule-based wage decision function (default: rule)')
+    parser.add_argument('--wage-max-change', type=float, default=0.5, 
+                        help='the largest fraction a wage can move in one month (rule moves at most 1.9%%)')
+    parser.add_argument('--wage-prompt-variant', choices=sorted(WAGE_PROMPT_BUILDERS), default='default',
+                        help='what prompt you would like to use for the llm wage decision rule')
+    parser.add_argument('--wage-prompt-log', type=str, default=None, 
+                        help='whether you would like to log the prompts for the llm wage decision function')
+
     args = parser.parse_args()
     if args.max_concurrent < 1:
         parser.error('--max-concurrent must be at least 1')
     if args.no_price_band and args.prompt_variant == 'strict':
         parser.error('--no-price-band contradicts the strict prompt, which tells firms moves past the band are blocked')
+    if 'llm' in (args.pricing_mode, args.wage_mode) and not args.llm_model:
+        parser.error('using llm pricing or wage mode requires --llm-model')
+    if not 0 < args.wage_max_change < 1: 
+        parser.error('invalid --wage-max-change. please choose a value between 0 and 1')
+    if args.wage_prompt_log and args.wage_mode == 'rule' and not args.resume_from:
+        parser.error('--wage-prompt-log needs --wage-mode llm')
 
-    out_dir = os.path.dirname(args.out)
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    snap_dir = os.path.dirname(args.firm_snapshots)
-    if snap_dir:
-        os.makedirs(snap_dir, exist_ok=True)
-    if args.timings:
-        timings_dir = os.path.dirname(args.timings)
-        if timings_dir:
-            os.makedirs(timings_dir, exist_ok=True)
-    if args.prompt_log:
-        prompt_log_dir = os.path.dirname(args.prompt_log)
-        if prompt_log_dir:
-            os.makedirs(prompt_log_dir, exist_ok=True)
+    for path in (args.out, args.firm_snapshots, args.timings, args.prompt_log, args.wage_prompt_log):
+        ensure_parent_dir(path)
+
+    for path in (args.out, args.firm_snapshots):
+        open(path, 'a').close() #fail now rather than at the end of run 
 
     if args.resume_from:
         with open(args.resume_from, 'rb') as f:
@@ -88,6 +100,12 @@ def main():
             print(f"LLM requests now go to {args.llm_api_base}")
         if not args.prompt_log:
             model.prompt_log = None # stop collecting prompts we wont write out
+        elif getattr(model, "prompt_log", None) is None:
+            model.prompt_log = []
+        if not args.wage_prompt_log:
+            model.wage_prompt_log = None
+        elif getattr(model, "wage_prompt_log", None) is None:
+            model.wage_prompt_log = [] # resuming a run that wasnt logging: start logging now 
     else:
         model_params = dict(PARAMS)
         model_params['n_households'] = args.n_households
@@ -101,6 +119,10 @@ def main():
         model_params['log_prompts'] = args.prompt_log is not None
         model_params['prompt_variant'] = args.prompt_variant
         model_params['price_band'] = not args.no_price_band
+        model_params['wage_mode'] = args.wage_mode
+        model_params['wage_max_change_frac'] = args.wage_max_change        
+        model_params['wage_prompt_variant'] = args.wage_prompt_variant
+        model_params['log_wage_prompts'] = args.wage_prompt_log is not None
         model = LegnickModel(**model_params)
 
     checkpoint_path = os.path.splitext(args.out)[0] + "_checkpoint.pkl"
@@ -121,6 +143,8 @@ def main():
             save_checkpoint(model, checkpoint_path)
             if args.prompt_log:
                 write_prompt_log(args.prompt_log, model.prompt_log)
+            if args.wage_prompt_log:
+                write_prompt_log(args.wage_prompt_log, model.wage_prompt_log)
 
     data = model.datacollector.get_model_vars_dataframe()
     data.to_csv(args.out)
@@ -133,6 +157,8 @@ def main():
 
     if args.prompt_log:
         write_prompt_log(args.prompt_log, model.prompt_log)
+    if args.wage_prompt_log:
+        write_prompt_log(args.wage_prompt_log, model.wage_prompt_log)
 
     print(f"[seed {args.seed}] DONE in {time.time() - t0:.0f}s, "
         f"wrote {args.out} and {args.firm_snapshots}", flush=True)
