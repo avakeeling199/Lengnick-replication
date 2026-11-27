@@ -61,7 +61,8 @@ class LegnickModel(mesa.Model):
     
     def __init__(self, n_households, n_firms, seed, alpha, n, ld, chi, gamma, delta, phi_emp_upper, phi_emp_lower, phi_price_lower, 
                 phi_price_upper, vartheta, theta, psi_price, xi, psi_quant, beta, pie, pricing_mode, llm_model=None, llm_api_base=None, 
-                llm_temperature=0.3, llm_backend="direct", max_concurrent=12, log_prompts=False, prompt_variant="strict", price_band=True):
+                llm_temperature=0.3, llm_backend="direct", max_concurrent=12, log_prompts=False, prompt_variant="strict", price_band=True,
+                wage_mode="rule", wage_max_change_frac=0.5, wage_prompt_variant="default", log_wage_prompts=False):
         super().__init__(rng=seed)
         self.n_households = n_households
         self.n_firms = n_firms
@@ -84,14 +85,21 @@ class LegnickModel(mesa.Model):
         self.psi_quant = psi_quant
         self.pie = pie
         self.pricing_mode = pricing_mode
-        if pricing_mode == "llm" and llm_model is None: 
-            raise ValueError("pricing_mode='llm' requires llm_model (e.g. 'ollama/llama3.2:3b')")
         self.timings = []
         self.max_concurrent = max_concurrent
         self.prompt_log = [] if log_prompts else None
         self.prompt_variant = prompt_variant
         self.price_band = price_band
+        self.wage_mode = wage_mode
+        self.wage_max_change_frac = wage_max_change_frac
+        self.wage_prompt_variant = wage_prompt_variant
+        self.wage_prompt_log = [] if log_wage_prompts else None
 
+        if "llm" in (pricing_mode, wage_mode) and llm_model is None: 
+            raise ValueError("pricing_mode or wage_mode = 'llm' requires llm_model (e.g. 'ollama/llama3.2:3b')")
+
+        if wage_mode not in ("rule", "llm"):
+            raise ValueError(f"unknown wage_mode {wage_mode!r}")
         # data collection
         self.datacollector = mesa.DataCollector(
         model_reporters={
@@ -111,7 +119,7 @@ class LegnickModel(mesa.Model):
 
         # create agents
         Household.create_agents(model=self, n=n_households)
-        if pricing_mode == "llm":
+        if pricing_mode == "llm" or wage_mode == "llm":
             LLMFirm.create_agents(model=self, n=n_firms, llm_model=llm_model, api_base=llm_api_base, temperature=llm_temperature, backend=llm_backend)
         else:
             Firm.create_agents(model=self, n=n_firms)
@@ -146,7 +154,13 @@ class LegnickModel(mesa.Model):
             self._month_t0 = time.perf_counter()
             # firms:
             # each decide how to set w_f
-            self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
+            t_wage = time.perf_counter()
+            if self.wage_mode == "llm":
+                asyncio.run(arun_firms(self.firms, "aset_wage", self.max_concurrent,
+                                        max_change_frac=self.wage_max_change_frac))
+            else:
+                self.agents.select(agent_type =Firm).do("set_wages", gamma=self.gamma, delta=self.delta)
+            self._wage_wall_s = time.perf_counter() - t_wage
             # set employment demand and fire workers from last month
             self.agents.select(agent_type=Firm).do("set_employment_and_fire", phi_emp_upper=self.phi_emp_upper, 
                                                     phi_emp_lower=self.phi_emp_lower)
@@ -223,6 +237,14 @@ class LegnickModel(mesa.Model):
                     snapshot['llm_input_inventory'] = input_i_f
                     snapshot['llm_input_demand'] = input_demand
                     snapshot['llm_action'] = action
+                if self.wage_mode == "llm" and f.wage_log:
+                    w = f.wage_log[-1]
+                    snapshot['llm_wage_ok'] = w['ok']
+                    snapshot['llm_wage_action'] = w['action']
+                    snapshot['llm_wage_reasoning'] = w['reasoning']
+                    snapshot['llm_wage_elapsed'] = w['elapsed']
+                    snapshot['llm_wage_input_open_position'] = w['open_position']
+                    snapshot['llm_wage_input_months_full'] = w['months_full']
                 self.firm_snapshots.append(snapshot)
             distribute_all_profits(self)
 
@@ -237,7 +259,8 @@ class LegnickModel(mesa.Model):
                 'month': month_num,
                 'month_wall_s': month_wall_s,
                 'pricing_wall_s': self._pricing_wall_s,
-                'other_s': month_wall_s - self._pricing_wall_s
+                'wage_wall_s': self._wage_wall_s,
+                'other_s': month_wall_s - self._pricing_wall_s - self._wage_wall_s
             })
 
 
